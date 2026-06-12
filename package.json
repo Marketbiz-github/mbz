@@ -6,12 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.2.6",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "lint": "eslint",
+    "db:migrate": "npx supabase db push",
+    "db:seed": "node scripts/seed-remote.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -20,7 +17,21 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "lucide-react": "^1.17.0",
+    "next": "^16.2.9",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.6.0",
+    "ws": "^8.21.0"
   }
 }
