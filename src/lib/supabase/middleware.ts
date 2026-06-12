@@ -34,21 +34,45 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // PROTECTED ROUTES LOGIC
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login')
-  const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard')
+  const url = request.nextUrl.clone()
+  const isLoginPage = url.pathname.startsWith('/login')
+  const isClientPath = url.pathname.startsWith('/client')
+  const isAdminPath = url.pathname.startsWith('/dashboard') || 
+                      url.pathname.startsWith('/crm') || 
+                      url.pathname.startsWith('/scheduler') || 
+                      url.pathname.startsWith('/email') || 
+                      url.pathname.startsWith('/ai-generator')
 
-  if (!user && isDashboardPage) {
-    // No user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone()
+  if (!user && (isClientPath || isAdminPath)) {
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  if (user && isLoginPage) {
-    // User is logged in, redirect away from login page
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+  if (user) {
+    // Fetch role to handle proper redirection
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    const role = profile?.role
+
+    if (isLoginPage) {
+      url.pathname = role === 'admin' ? '/dashboard' : '/client/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    // Role-based path protection
+    if (role === 'client' && isAdminPath) {
+      url.pathname = '/client/dashboard'
+      return NextResponse.redirect(url)
+    }
+
+    if (role === 'admin' && isClientPath) {
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

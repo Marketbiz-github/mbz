@@ -14,13 +14,14 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login' || pathname === '/';
+  const isClientPath = pathname?.startsWith('/client');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <html lang="en">
       <body className="antialiased bg-black text-white">
         <AuthProvider>
-          {isLoginPage ? (
+          {isLoginPage || isClientPath ? (
             children
           ) : (
             <div className="flex min-h-screen relative">
