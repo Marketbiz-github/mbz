@@ -15,7 +15,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value, options))
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({
             request,
           })
@@ -37,12 +37,14 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone()
   const isLoginPage = url.pathname.startsWith('/login')
   const isClientPath = url.pathname.startsWith('/client')
-  const isAdminPath = url.pathname.startsWith('/dashboard') || 
-                      url.pathname.startsWith('/crm') || 
-                      url.pathname.startsWith('/scheduler') || 
-                      url.pathname.startsWith('/email') || 
-                      url.pathname.startsWith('/ai-generator')
-
+  const isAdminPath = 
+    url.pathname === '/dashboard' || 
+    url.pathname.startsWith('/scheduler') || 
+    url.pathname.startsWith('/email') || 
+    url.pathname.startsWith('/ai-generator') || 
+    url.pathname.startsWith('/crm') ||
+    url.pathname.startsWith('/settings')
+  
   if (!user && (isClientPath || isAdminPath)) {
     url.pathname = '/login'
     return NextResponse.redirect(url)

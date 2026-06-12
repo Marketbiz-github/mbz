@@ -6,3 +6,4 @@
 
 -- Include Data
 \i supabase/seed/02_clients.sql
+\i supabase/seed/03_email_campaigns.sql

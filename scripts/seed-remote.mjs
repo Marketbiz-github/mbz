@@ -31,7 +31,8 @@ async function runSeed() {
 
   const seedFiles = [
     '01_users.sql',
-    '02_clients.sql'
+    '02_clients.sql',
+    '03_email_campaigns.sql'
   ];
 
   for (const fileName of seedFiles) {

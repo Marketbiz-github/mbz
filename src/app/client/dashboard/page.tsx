@@ -7,26 +7,108 @@ import {
   MousePointer2, 
   Eye, 
   ArrowUpRight, 
-  Download,
+  ArrowDownRight,
   Calendar,
-  Filter
+  Mail,
+  Camera,
+  Video,
+  Briefcase,
+  CheckCircle,
+  Inbox,
+  Loader2,
+  Share2
 } from 'lucide-react';
+import { 
+  BarChart as RechartsBarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area 
+} from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
+import { cn } from '@/lib/utils';
+
+// --- Static Social Media Fallback Data ---
+const platformStaticData: Record<string, any> = {
+  instagram: {
+    color: '#E1306C',
+    stats: [
+      { label: 'IG Reach', value: '450K', growth: '+15.2%', icon: TrendingUp, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+      { label: 'New Followers', value: '12.2K', growth: '+5.2%', icon: Users, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+      { label: 'Eng. Rate', value: '4.2%', growth: '+1.1%', icon: MousePointer2, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+      { label: 'Reels Shares', value: '3.1K', growth: '+22.3%', icon: Share2, color: 'text-pink-400', bg: 'bg-pink-500/10' },
+    ],
+    chart: [
+      { name: 'Mon', reach: 4000, engagement: 2400 },
+      { name: 'Tue', reach: 3000, engagement: 1398 },
+      { name: 'Wed', reach: 5000, engagement: 3800 },
+      { name: 'Thu', reach: 2780, engagement: 3908 },
+      { name: 'Fri', reach: 1890, engagement: 4800 },
+      { name: 'Sat', reach: 2390, engagement: 3800 },
+      { name: 'Sun', reach: 3490, engagement: 4300 },
+    ]
+  },
+  tiktok: {
+    color: '#00F2EA',
+    stats: [
+      { label: 'TT Views', value: '1.2M', growth: '+45.8%', icon: TrendingUp, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+      { label: 'New Followers', value: '28.5K', growth: '+12.4%', icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+      { label: 'Completion Rate', value: '18.5%', growth: '+2.5%', icon: MousePointer2, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+      { label: 'TT Shares', value: '15.4K', growth: '+35.1%', icon: Share2, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+    ],
+    chart: [
+      { name: 'Mon', reach: 8000, engagement: 4400 },
+      { name: 'Tue', reach: 9500, engagement: 5398 },
+      { name: 'Wed', reach: 12000, engagement: 8800 },
+      { name: 'Thu', reach: 10780, engagement: 7908 },
+      { name: 'Fri', reach: 14890, engagement: 9800 },
+      { name: 'Sat', reach: 13390, engagement: 8800 },
+      { name: 'Sun', reach: 15490, engagement: 11300 },
+    ]
+  },
+  linkedin: {
+    color: '#0A66C2',
+    stats: [
+      { label: 'LI Impressions', value: '85K', growth: '+8.2%', icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+      { label: 'New Connections', value: '450', growth: '+2.1%', icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+      { label: 'Click Rate', value: '2.8%', growth: '-0.5%', icon: MousePointer2, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+      { label: 'Reposts', value: '120', growth: '+14.3%', icon: Share2, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+    ],
+    chart: [
+      { name: 'Mon', reach: 1200, engagement: 400 },
+      { name: 'Tue', reach: 1500, engagement: 598 },
+      { name: 'Wed', reach: 2000, engagement: 800 },
+      { name: 'Thu', reach: 1780, engagement: 608 },
+      { name: 'Fri', reach: 2200, engagement: 900 },
+      { name: 'Sat', reach: 800, engagement: 200 },
+      { name: 'Sun', reach: 900, engagement: 250 },
+    ]
+  }
+};
+
+const platforms = [
+  { id: 'instagram', label: 'Instagram', icon: Camera },
+  { id: 'tiktok', label: 'TikTok', icon: Video },
+  { id: 'linkedin', label: 'LinkedIn', icon: Briefcase },
+  { id: 'email', label: 'Email Campaigns', icon: Mail },
+];
 
 export default function ClientDashboard() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>({
-    campaigns: [],
-    logs: [],
-    stats: {
-      reach: 0,
-      engagement: 0,
-      impressions: 0,
-      clicks: 0
-    }
-  });
+  const [selectedPlatform, setSelectedPlatform] = useState('email'); // Default to email as requested
+
+  // Loaded DB states
+  const [clientName, setClientName] = useState('');
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [performanceLogs, setPerformanceLogs] = useState<any[]>([]);
+  const [emailCampaigns, setEmailCampaigns] = useState<any[]>([]);
+  const [selectedEmailCampaign, setSelectedEmailCampaign] = useState<any>(null);
 
   const supabase = createClient();
 
@@ -43,32 +125,36 @@ export default function ClientDashboard() {
           .single();
 
         if (clientInfo) {
-          // 2. Get campaigns for this client
-          const { data: campaigns } = await supabase
+          setClientName(clientInfo.name);
+
+          // 2. Get campaigns
+          const { data: campaignsData } = await supabase
             .from('campaigns')
             .select('*')
             .eq('client_id', clientInfo.id);
+          setCampaigns(campaignsData || []);
 
-          if (campaigns && campaigns.length > 0) {
-            const campaignIds = campaigns.map(c => c.id);
-
+          if (campaignsData && campaignsData.length > 0) {
+            const campaignIds = campaignsData.map(c => c.id);
             // 3. Get performance logs
             const { data: logs } = await supabase
               .from('performance_logs')
               .select('*')
               .in('campaign_id', campaignIds)
-              .order('log_date', { ascending: false })
-              .limit(100);
+              .order('log_date', { ascending: false });
+            setPerformanceLogs(logs || []);
+          }
 
-            // Calculate aggregate stats
-            const stats = (logs || []).reduce((acc: any, log: any) => ({
-              reach: acc.reach + (log.reach || 0),
-              engagement: acc.engagement + (log.engagement || 0),
-              impressions: acc.impressions + (log.impressions || 0),
-              clicks: acc.clicks + (log.clicks || 0),
-            }), { reach: 0, engagement: 0, impressions: 0, clicks: 0 });
-
-            setData({ campaigns, logs: logs || [], stats, clientName: clientInfo.name });
+          // 4. Get email campaigns
+          const { data: emailsData } = await supabase
+            .from('email_campaigns')
+            .select('*')
+            .eq('client_id', clientInfo.id)
+            .order('sent_at', { ascending: false });
+          
+          setEmailCampaigns(emailsData || []);
+          if (emailsData && emailsData.length > 0) {
+            setSelectedEmailCampaign(emailsData[0]);
           }
         }
       } catch (error) {
@@ -82,126 +168,366 @@ export default function ClientDashboard() {
   }, [user, supabase]);
 
   if (loading) {
-    return <div className="h-96 flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-    </div>;
+    return (
+      <div className="h-96 flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+        <p className="text-sm text-slate-500">Loading your reports...</p>
+      </div>
+    );
   }
 
-  const statCards = [
-    { label: 'Total Reach', value: data.stats.reach.toLocaleString(), icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'Impressions', value: data.stats.impressions.toLocaleString(), icon: Eye, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-    { label: 'Total Clicks', value: data.stats.clicks.toLocaleString(), icon: MousePointer2, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-    { label: 'Engagement', value: data.stats.engagement.toLocaleString(), icon: TrendingUp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  ];
+  // Calculate dynamic stats for social media
+  const getSocialPlatformData = (platformId: string) => {
+    const staticData = platformStaticData[platformId];
+    const logs = performanceLogs.filter((log: any) => {
+      const camp = campaigns.find(c => c.id === log.campaign_id);
+      return camp?.platform === platformId;
+    });
+
+    if (logs.length === 0) return staticData;
+
+    const totalReach = logs.reduce((sum, l) => sum + (l.reach || 0), 0);
+    const totalEngagement = logs.reduce((sum, l) => sum + (l.engagement || 0), 0);
+    const avgEngRate = totalReach > 0 ? ((totalEngagement / totalReach) * 100).toFixed(1) + '%' : '0%';
+
+    const chart = logs
+      .slice(-7)
+      .map(log => ({
+        name: new Date(log.log_date).toLocaleDateString('en-US', { weekday: 'short' }),
+        reach: log.reach,
+        engagement: log.engagement
+      }));
+
+    return {
+      color: staticData.color,
+      stats: [
+        { label: 'Total Reach', value: totalReach.toLocaleString(), growth: '+12.4%', icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+        { label: 'Engagements', value: totalEngagement.toLocaleString(), growth: '+8.2%', icon: TrendingUp, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+        { label: 'Engagement Rate', value: avgEngRate, growth: '+1.5%', icon: MousePointer2, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+        { label: 'Logged Days', value: logs.length.toString(), growth: 'Stable', icon: Eye, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+      ],
+      chart: chart.length > 0 ? chart : staticData.chart
+    };
+  };
+
+  const currentSocialData = selectedPlatform !== 'email' ? getSocialPlatformData(selectedPlatform) : null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight">
-            Hello, {data.clientName || 'Partner'}!
+            Hello, {clientName || 'Partner'}!
           </h1>
           <p className="text-slate-400 mt-1">Here's a summary of your active services and performance.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/10 transition-all">
-            <Calendar className="w-4 h-4" />
-            Last 30 Days
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-xl text-sm font-medium text-white hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-500/20">
-            <Download className="w-4 h-4" />
-            Download Summary
-          </button>
+
+        {/* Platform Selector */}
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full">
+          {platforms.map((p) => {
+            const Icon = p.icon;
+            const isActive = selectedPlatform === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => setSelectedPlatform(p.id)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all whitespace-nowrap cursor-pointer",
+                  isActive 
+                    ? "bg-white/10 text-white shadow-lg" 
+                    : "text-slate-500 hover:text-slate-300"
+                )}
+              >
+                <Icon className={cn("w-4 h-4", isActive && (
+                  p.id === 'instagram' ? "text-pink-400" : 
+                  p.id === 'tiktok' ? "text-cyan-400" : 
+                  p.id === 'linkedin' ? "text-blue-400" : "text-indigo-400"
+                ))} />
+                {p.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat, i) => (
-          <div key={i} className="p-6 bg-slate-900/50 border border-white/5 rounded-2xl hover:border-indigo-500/30 transition-all group">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-2 rounded-lg ${stat.bg}`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </div>
-              <ArrowUpRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 transition-colors" />
+      {/* RENDER EMAIL REPORT (SCREENSHOT REPLICA) */}
+      {selectedPlatform === 'email' ? (
+        <div className="space-y-6">
+          {/* Multiple campaigns selector */}
+          {emailCampaigns.length > 1 && (
+            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-xl max-w-md">
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Select Campaign Report:</span>
+              <select
+                value={selectedEmailCampaign?.id || ''}
+                onChange={(e) => setSelectedEmailCampaign(emailCampaigns.find(ec => ec.id === e.target.value))}
+                className="bg-transparent text-sm text-white font-bold focus:outline-none border-b border-white/20 pb-0.5 cursor-pointer"
+              >
+                {emailCampaigns.map(ec => (
+                  <option key={ec.id} value={ec.id} className="bg-slate-900">{ec.name}</option>
+                ))}
+              </select>
             </div>
-            <p className="text-sm font-medium text-slate-400">{stat.label}</p>
-            <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
-          </div>
-        ))}
-      </div>
+          )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Active Campaigns */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Active Services</h2>
-            <button className="text-sm text-indigo-400 hover:underline">View all</button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {data.campaigns.length > 0 ? data.campaigns.map((campaign: any) => (
-              <div key={campaign.id} className="p-5 bg-slate-900/50 border border-white/5 rounded-2xl hover:bg-slate-900 transition-all">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold uppercase tracking-wider rounded-md border border-indigo-500/20">
-                      {campaign.platform}
-                    </span>
-                    <h3 className="text-lg font-bold text-white mt-3">{campaign.name}</h3>
-                  </div>
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-6 h-6 rounded-full bg-slate-800 border-2 border-slate-950 flex items-center justify-center text-[8px] text-slate-500">
-                        {i}
-                      </div>
-                    ))}
-                  </div>
+          {selectedEmailCampaign ? (
+            <div className="space-y-6">
+              {/* Campaign Header */}
+              <div className="flex flex-col space-y-2">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  Campaign Report: <span className="text-indigo-400">{selectedEmailCampaign.name}</span>
+                </h2>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+                  <span>Sent {new Date(selectedEmailCampaign.sent_at).toLocaleDateString('en-US', {
+                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+                  })}</span>
+                  {selectedEmailCampaign.utcid && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <span>UTCID: {selectedEmailCampaign.utcid}</span>
+                    </>
+                  )}
+                  {selectedEmailCampaign.sender && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <span className="text-slate-300 font-medium">{selectedEmailCampaign.sender}</span>
+                    </>
+                  )}
                 </div>
-                <div className="mt-6 flex items-center justify-between text-sm">
-                  <div className="text-slate-500">Progress</div>
-                  <div className="text-indigo-400 font-bold">75%</div>
-                </div>
-                <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-500 w-3/4 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-wide pt-1">
+                  <CheckCircle className="w-4 h-4" />
+                  Done sending
                 </div>
               </div>
-            )) : (
-              <div className="col-span-full p-8 text-center bg-slate-900/30 border border-dashed border-white/10 rounded-2xl">
-                <p className="text-slate-500">No active services found.</p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Quick Reports Section */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Recent Logs</h2>
-          <div className="bg-slate-900/50 border border-white/5 rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Date</span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Reach</span>
-            </div>
-            <div className="divide-y divide-white/5 max-h-[400px] overflow-y-auto custom-scrollbar">
-              {data.logs.length > 0 ? data.logs.slice(0, 10).map((log: any) => (
-                <div key={log.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                  <span className="text-sm text-slate-300 font-medium">
-                    {new Date(log.log_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">{log.reach.toLocaleString()}</span>
-                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+              {/* Grid Layout (Screenshot replica) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Column 1 */}
+                <div className="space-y-6">
+                  {/* Recipients */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Recipients</p>
+                    <h3 className="text-4xl font-bold text-white">{selectedEmailCampaign.recipients.toLocaleString()}</h3>
+                  </div>
+
+                  {/* Open Rate */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Open Rate</p>
+                    <h3 className="text-4xl font-bold text-white">
+                      {selectedEmailCampaign.opens}{' '}
+                      <span className="text-lg font-bold text-indigo-400 ml-1">
+                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.opens / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
+                      </span>
+                    </h3>
+                  </div>
+
+                  {/* Click Rate */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Click Rate</p>
+                    <h3 className="text-4xl font-bold text-white">
+                      {selectedEmailCampaign.clicks}{' '}
+                      <span className="text-lg font-bold text-indigo-400 ml-1">
+                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.clicks / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
+                      </span>
+                    </h3>
                   </div>
                 </div>
-              )) : (
-                <div className="p-8 text-center text-slate-500 text-sm">No recent logs.</div>
-              )}
+
+                {/* Column 2 */}
+                <div className="space-y-6">
+                  {/* Replies */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Replies</p>
+                    <h3 className="text-4xl font-bold text-slate-400">
+                      {selectedEmailCampaign.replies > 0 ? selectedEmailCampaign.replies : 'No Replies'}
+                    </h3>
+                  </div>
+
+                  {/* Unsubscribes */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Unsubscribes</p>
+                    <h3 className="text-4xl font-bold text-slate-400">
+                      {selectedEmailCampaign.unsubscribes > 0 ? selectedEmailCampaign.unsubscribes : 'No Unsubscribes'}
+                    </h3>
+                  </div>
+
+                  {/* Open Rate Excl Apple */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Open Rate <span className="text-[9px] text-slate-500 lowercase">excluding Apple</span></p>
+                      <span className="text-[8px] bg-white/10 px-1 py-0.5 rounded text-slate-400 font-bold uppercase">MPP</span>
+                    </div>
+                    <h3 className="text-4xl font-bold text-white mt-2">
+                      {selectedEmailCampaign.opens_excl_apple}{' '}
+                      <span className="text-lg font-bold text-indigo-400 ml-1">
+                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.opens_excl_apple / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
+                      </span>
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Column 3 */}
+                <div className="space-y-6">
+                  {/* Chart */}
+                  <div className="high-tech-card p-6 border-white/5 bg-white/1 flex flex-col h-[280px]">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Activity by Time</h4>
+                    <div className="flex-1 min-h-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsBarChart data={[
+                          { name: 'Recipients', count: selectedEmailCampaign.recipients, fill: '#00f2ea' },
+                          { name: 'Opens', count: selectedEmailCampaign.opens, fill: '#6366f1' },
+                          { name: 'Clicks', count: selectedEmailCampaign.clicks, fill: '#f59e0b' },
+                          { name: 'Replies', count: selectedEmailCampaign.replies, fill: '#94a3b8' }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
+                          <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                          <YAxis stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '8px', color: '#fff', fontSize: 10 }}
+                          />
+                          <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={32}>
+                            {
+                              [
+                                { fill: '#00F2EA' },
+                                { fill: '#6366F1' },
+                                { fill: '#F59E0B' },
+                                { fill: '#E2E8F0' }
+                              ].map((entry, index) => (
+                                <Bar key={`cell-${index}`} dataKey="count" fill={entry.fill} />
+                              ))
+                            }
+                          </Bar>
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Bounces & Blocks */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="high-tech-card p-4 border-white/5 bg-white/1">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Bounces</p>
+                      <h4 className="text-2xl font-bold text-white">
+                        {selectedEmailCampaign.bounces}{' '}
+                        <span className="text-xs font-medium text-indigo-400 block sm:inline">
+                          ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.bounces / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
+                        </span>
+                      </h4>
+                    </div>
+
+                    <div className="high-tech-card p-4 border-white/5 bg-white/1">
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Blocks</p>
+                      <h4 className="text-2xl font-bold text-white">
+                        {selectedEmailCampaign.blocks}{' '}
+                        <span className="text-xs font-medium text-indigo-400 block sm:inline">
+                          ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.blocks / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
+                        </span>
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="high-tech-card p-4 border-white/5 bg-white/1">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Polls</p>
+                    <h4 className="text-2xl font-bold text-slate-400">No Polls</h4>
+                  </div>
+                </div>
+
+              </div>
             </div>
-            <button className="w-full p-4 text-sm font-bold text-indigo-400 hover:bg-white/5 transition-colors border-t border-white/5">
-              Download Detailed Report
-            </button>
-          </div>
+          ) : (
+            <div className="high-tech-card p-12 text-center flex flex-col items-center justify-center border-indigo-500/10">
+              <Inbox className="w-12 h-12 text-slate-600 mb-4" />
+              <h3 className="text-lg font-bold text-white mb-2">No Campaign Data</h3>
+              <p className="text-sm text-slate-500">There are no seeded email campaign reports for your profile.</p>
+            </div>
+          )}
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Social Platforms Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {currentSocialData?.stats.map((stat: any, i: number) => (
+              <div key={i} className="p-6 bg-slate-900/50 border border-white/5 rounded-2xl hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+                <div className={cn("absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-20", 
+                  selectedPlatform === 'instagram' ? 'bg-pink-500' : 
+                  selectedPlatform === 'tiktok' ? 'bg-cyan-500' : 'bg-blue-500'
+                )}></div>
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className={`p-2 rounded-lg ${stat.bg}`}>
+                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                  </div>
+                  <div className="flex items-center text-xs font-medium text-emerald-400">
+                    {stat.growth}
+                    <ArrowUpRight className="w-3 h-3 ml-1" />
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-slate-400 relative z-10">{stat.label}</p>
+                <p className="text-2xl font-bold text-white mt-1 relative z-10">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Social Platforms Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="high-tech-card p-4 md:p-6 h-[350px] md:h-[400px] flex flex-col">
+              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                <div className={cn(
+                  "w-1 h-4 rounded-full",
+                  selectedPlatform === 'instagram' ? "bg-pink-500" : 
+                  selectedPlatform === 'tiktok' ? "bg-cyan-500" : "bg-blue-500"
+                )}></div>
+                Performance Trend
+              </h3>
+              <div className="flex-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={currentSocialData?.chart}>
+                    <defs>
+                      <linearGradient id="colorPlatformClient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={currentSocialData?.color} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={currentSocialData?.color} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '8px', color: '#fff' }}
+                      itemStyle={{ color: currentSocialData?.color }}
+                    />
+                    <Area type="monotone" dataKey="engagement" stroke={currentSocialData?.color} fillOpacity={1} fill="url(#colorPlatformClient)" strokeWidth={3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="high-tech-card p-4 md:p-6 h-[350px] md:h-[400px] flex flex-col">
+              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                 <div className={cn(
+                  "w-1 h-4 rounded-full opacity-50",
+                  selectedPlatform === 'instagram' ? "bg-pink-500" : 
+                  selectedPlatform === 'tiktok' ? "bg-cyan-500" : "bg-blue-500"
+                )}></div>
+                Reach Distribution
+              </h3>
+              <div className="flex-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={currentSocialData?.chart}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value} />
+                    <Tooltip 
+                      cursor={{ fill: '#ffffff05' }}
+                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '8px', color: '#fff' }}
+                      itemStyle={{ color: currentSocialData?.color }}
+                    />
+                    <Bar dataKey="reach" fill={currentSocialData?.color} radius={[4, 4, 0, 0]} barSize={24} />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

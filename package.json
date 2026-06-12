@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx supabase db push",
-    "db:seed": "node scripts/seed-remote.mjs"
+    "db:seed": "node scripts/seed-remote.mjs",
+    "db:fresh": "node scripts/fresh-remote.mjs"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
