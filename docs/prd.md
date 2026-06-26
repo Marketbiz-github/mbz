@@ -183,7 +183,7 @@ Metrik yang ditrack per **project**:
 >
 > **Syarat:**
 > - Setiap client yang ambil service SEO harus share akses Google Analytics property-nya
-> - Admin menyimpan `GA4 Property ID` per project SEO
+> - Admin menyimpan `GA4 Property ID` pada level Project (shared untuk SEO, Email Blast, dan WA Blast)
 > - Sistem menggunakan Google Cloud Service Account untuk autentikasi
 >
 > **Fallback**: Jika client tidak punya GA / belum setup, Admin input data manual
@@ -213,6 +213,29 @@ Metrik yang ditrack per **campaign** WA (1 project bisa punya banyak campaign):
 | `campaign_name` | text | Manual | Nama campaign WA |
 | `sent_at` | timestamp | Manual | Waktu blast dikirim |
 | `template_name` | text | Manual | Nama template WA yang digunakan |
+
+
+
+### Arsitektur Google Analytics (Revisi)
+
+Google Analytics merupakan **shared analytics backend** pada level **Project**.
+
+Setiap Project dapat memiliki:
+- `website_url`
+- `ga_property_id`
+
+Sistem hanya melakukan **1 koneksi Google Analytics Data API** untuk setiap Project. Data kemudian difilter sesuai kebutuhan layanan:
+
+| Service | Filter GA4 | Data |
+|---|---|---|
+| SEO | `sessionDefaultChannelGrouping = Organic Search` | Sessions, Users, Organic Traffic, Bounce Rate |
+| Email Blast | `sessionSource = email` atau `sessionMedium = email` | Clicks & landing visits dari email |
+| WA Blast | `sessionSource = whatsapp` atau parameter UTM | Clicks & landing visits dari WhatsApp |
+
+Prinsip:
+- Single Source of Truth untuk GA4 Property ID.
+- Tidak ada duplikasi `ga_property_id` di tabel report.
+- Data operasional (opens, delivered, replies, dll.) tetap berasal dari input manual atau integrasi provider di masa depan.
 
 #### Shared GA4 Analytics Architecture
 Sistem menggunakan satu backend koneksi Google Analytics 4 (GA4) Property ID yang di-setup di level Client/Project. Data GA4 disaring berdasarkan parameter untuk didistribusikan ke masing-masing dashboard layanan:
@@ -327,7 +350,6 @@ CREATE TABLE public.wa_blast_reports (
   clicks INTEGER DEFAULT 0, -- Click track via Google Analytics integration
   failed INTEGER DEFAULT 0,
   notes TEXT,
-  ga_property_id TEXT, -- Google Analytics Property ID (shared with SEO if any)
   source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'ga4_api')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
@@ -347,7 +369,6 @@ CREATE TABLE public.seo_reports (
   organic_traffic INTEGER DEFAULT 0,
   top_keywords JSONB DEFAULT '[]',
   top_pages JSONB DEFAULT '[]',
-  ga_property_id TEXT, -- Google Analytics Property ID (for API integration)
   source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'ga4_api')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
