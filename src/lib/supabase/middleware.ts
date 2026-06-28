@@ -36,16 +36,25 @@ export async function updateSession(request: NextRequest) {
   // PROTECTED ROUTES LOGIC
   const url = request.nextUrl.clone()
   const isLoginPage = url.pathname.startsWith('/login')
-  const isClientPath = url.pathname.startsWith('/client')
+  // Portal klien adalah route spesifik untuk klien
+  const isClientPortalPath = 
+    url.pathname.startsWith('/client/dashboard') ||
+    url.pathname.startsWith('/client/reports') ||
+    url.pathname.startsWith('/client/notifications') ||
+    url.pathname.startsWith('/client/help')
+  
   const isAdminPath = 
     url.pathname === '/dashboard' || 
-    url.pathname.startsWith('/scheduler') || 
+    url.pathname.startsWith('/sosmed') || 
     url.pathname.startsWith('/email') || 
+    url.pathname.startsWith('/wa-blast') || 
+    url.pathname.startsWith('/seo') ||
+    url.pathname === '/client' ||
+    url.pathname.startsWith('/scheduler') || 
     url.pathname.startsWith('/ai-generator') || 
-    url.pathname.startsWith('/crm') ||
     url.pathname.startsWith('/settings')
   
-  if (!user && (isClientPath || isAdminPath)) {
+  if (!user && (isClientPortalPath || isAdminPath)) {
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
@@ -71,7 +80,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (role === 'admin' && isClientPath) {
+    if (role === 'admin' && isClientPortalPath) {
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }

@@ -48,35 +48,14 @@ DECLARE
     'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
     'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44'
   ]::uuid[];
-  seed_client_ids uuid[];
-  seed_campaign_ids uuid[];
 BEGIN
-  -- Collect all client IDs owned by seed users
-  SELECT ARRAY(SELECT id FROM public.clients WHERE owner_id = ANY(seed_user_ids))
-  INTO seed_client_ids;
-
-  -- Collect all campaign IDs for those clients
-  SELECT ARRAY(SELECT id FROM public.campaigns WHERE client_id = ANY(seed_client_ids))
-  INTO seed_campaign_ids;
-
-  -- Step 1: Delete email_campaigns for seed clients
-  DELETE FROM public.email_campaigns WHERE client_id = ANY(seed_client_ids);
-
-  -- Step 2: Delete performance_logs for seed campaigns
-  IF array_length(seed_campaign_ids, 1) > 0 THEN
-    DELETE FROM public.performance_logs WHERE campaign_id = ANY(seed_campaign_ids);
-  END IF;
-
-  -- Step 3: Delete campaigns for seed clients
-  DELETE FROM public.campaigns WHERE client_id = ANY(seed_client_ids);
-
-  -- Step 4: Delete all clients owned by seed users
+  -- Step 1: Delete all clients owned by seed users (cascades to projects, reports, etc.)
   DELETE FROM public.clients WHERE owner_id = ANY(seed_user_ids);
 
-  -- Step 5: Delete profiles
+  -- Step 2: Delete profiles
   DELETE FROM public.profiles WHERE id = ANY(seed_user_ids);
 
-  -- Step 6: Delete auth users
+  -- Step 3: Delete auth users
   DELETE FROM auth.users WHERE id = ANY(seed_user_ids);
 END $$;
 `;
@@ -85,6 +64,8 @@ const SEED_FILES = [
   '01_users.sql',
   '02_clients.sql',
   '03_email_campaigns.sql',
+  '04_services.sql',
+  '05_prd_seed.sql',
 ];
 
 async function execSql(sql, label) {

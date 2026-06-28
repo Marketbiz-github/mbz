@@ -14,19 +14,24 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login' || pathname === '/';
-  const isClientPath = pathname?.startsWith('/client');
+  // `/client` is the admin page, `/client/*` is the client portal
+  const isClientPortal = 
+    pathname?.startsWith('/client/dashboard') ||
+    pathname?.startsWith('/client/reports') ||
+    pathname?.startsWith('/client/notifications') ||
+    pathname?.startsWith('/client/help');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <html lang="en">
       <body className="antialiased bg-black text-white">
         <AuthProvider>
-          {isLoginPage || isClientPath ? (
+          {isLoginPage || isClientPortal ? (
             children
           ) : (
             <div className="flex min-h-screen relative">
               {/* Mobile Header */}
-              <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-black/50 backdrop-blur-xl border-b border-white/10 z-[60] flex items-center justify-between px-4">
+              <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-black/50 backdrop-blur-xl border-b border-white/10 z-60 flex items-center justify-between px-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-cyan-500 rounded flex items-center justify-center font-bold text-black italic text-sm">M</div>
                   <span className="font-bold text-lg tracking-tight text-white">MARKETBIZ</span>
@@ -42,14 +47,14 @@ export default function RootLayout({
               {/* Sidebar Overlay for Mobile */}
               {isSidebarOpen && (
                 <div 
-                  className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[70]"
+                  className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-70"
                   onClick={() => setIsSidebarOpen(false)}
                 ></div>
               )}
 
               {/* Sidebar Container */}
               <div className={`
-                fixed inset-y-0 left-0 z-[80] transition-transform duration-300 transform lg:translate-x-0
+                fixed inset-y-0 left-0 z-80 transition-transform duration-300 transform lg:translate-x-0
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
               `}>
                 <Sidebar onClose={() => setIsSidebarOpen(false)} />

@@ -182,7 +182,7 @@ Pattern untuk tabel data:
         </tr>
       </thead>
       <tbody className="divide-y divide-white/5">
-        <tr className="hover:bg-white/[0.02] transition-colors group">
+        <tr className="hover:bg-white/2 transition-colors group">
           <td className="px-6 py-4">
             {/* content */}
           </td>
@@ -288,7 +288,7 @@ Pattern untuk tabel data:
 ### 4.7 Modal
 
 ```tsx
-<div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+<div className="fixed inset-0 z-100 flex items-center justify-center p-4">
   <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
   <div className="relative w-full max-w-lg high-tech-card p-6 md:p-8 
                   bg-slate-900 border-cyan-500/30 

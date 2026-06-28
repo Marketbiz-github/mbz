@@ -503,15 +503,30 @@ profiles (user)
 ### 8.5 Client (`/client`)
 
 **Admin View:**
-1. List semua client + status
-2. Tambah client baru:
-   - Nama, Email (menggunakan email asli client), Industry, Website, Logo
-   - Pilih service yang diambil (checkbox: Sosmed, Email Blast, WA Blast, SEO, Web Dev)
-   - Sistem auto-generate akun menggunakan **email client** + auto-generate password sementara
-3. Edit client: update info, tambah/hapus service
-4. Per client: lihat & kelola project di masing-masing service
-5. Kelola credentials akun client
-6. Download laporan client (PDF/Excel)
+1. **List Klien**:
+   - Menampilkan tabel klien lengkap dengan **Nomor Urut**, Nama Klien, Website, PIC (Nama & Email), Jumlah Layanan Aktif, dan Jumlah Proyek.
+   - Dilengkapi dengan filter pencarian instan dan dropdown filter status (All Status, Ongoing, Completed).
+2. **Statistik (Stats Cards)**:
+   - Menampilkan ringkasan data real-time: **Active Clients**, **Total Clients**, **Total Services**, **Total Projects**, dan **Project Done %** (Persentase penyelesaian proyek).
+3. **Tambah Klien Baru**:
+   - Form modal untuk menambahkan Nama, Website, Nama PIC, Email PIC, dan pilihan Layanan Awal (Sosmed, Email, WA Blast, SEO, Web Dev).
+   - **Auto-Generate Akun**: Sistem secara otomatis men-generate akun pengguna (Client Portal) menggunakan **Email PIC Klien** sebagai username, serta membuat *password* sementara secara otomatis.
+4. **Edit Klien**:
+   - Form modal pre-filled untuk mengubah data Nama, Website, Nama PIC, Email PIC, dan Layanan Klien. 
+   - Status Klien terhitung secara otomatis dari status proyek aktif (tidak dapat diubah manual secara global).
+5. **Kelola Kredensial & Reset Password**:
+   - Admin dapat melihat kredensial akun klien secara instan (Username & Temporary Password).
+   - Tombol **Reset Password** memicu regenerasi password acak aman baru (`mbz-[nama]-pwd-[random]`) di Supabase Auth secara instan dan memperbarui UI kredensial agar Admin bisa menyalinnya.
+6. **Status Akun Klien (Global)**:
+   - Status akun klien ditentukan secara global oleh Admin (Active, Inactive, Warning) melalui Form Tambah/Edit Klien.
+   - Status tampilan dinamis:
+     - Jika status global **Inactive**, klien ditampilkan sebagai `Inactive` (Akses diblokir).
+     - Jika status global **Warning**, klien ditampilkan sebagai `Warning` (Akses ditangguhkan).
+     - Jika status global **Active**, status dihitung otomatis berdasarkan proyek: `Ongoing` (jika ada proyek aktif) atau `Completed` (jika tidak ada proyek aktif).
+7. **Halaman Detail Klien (`/client/[id]`)**:
+   - Navigasi penuh (bukan popup) ke halaman rute dinamis `/client/[id]` dengan Sidebar Menu Admin tetap aktif.
+   - Sisi Kiri: Informasi lengkap PIC, kredensial akun, tombol Reset Password aktif, daftar **Active Services** (sidetab interaktif), dan daftar **Completed Services (History)**.
+   - Sisi Kanan: Proyek terhitung (Total Projects), tombol ekspor laporan (**Download PDF / Excel**), dan list tabel proyek dinamis lengkap dengan nama proyek, kategori servis, status (`Active`/`Completed`), dan *progress bar* detail yang disaring berdasarkan sidetab aktif.
 
 ---
 

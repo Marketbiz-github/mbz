@@ -12,17 +12,23 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  User
+  User,
+  MessageCircle,
+  Search,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'KPI Dashboard', href: '/dashboard' },
-  { icon: CalendarDays, label: 'Social Scheduler', href: '/scheduler' },
-  { icon: Mail, label: 'Email Platform', href: '/email' },
-  { icon: Sparkles, label: 'AI Copy Gen', href: '/ai-generator' },
-  { icon: Users2, label: 'CRM Clients', href: '/crm' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+  { icon: Share2, label: 'Sosmed', href: '/sosmed' },
+  { icon: Mail, label: 'Email Blast', href: '/email' },
+  { icon: MessageCircle, label: 'WA Blast', href: '/wa-blast' },
+  { icon: Search, label: 'SEO', href: '/seo' },
+  { icon: Users2, label: 'Client', href: '/client' },
+  // { icon: CalendarDays, label: 'Social Scheduler', href: '/scheduler' },
+  // { icon: Sparkles, label: 'AI Copy Gen', href: '/ai-generator' },
 ];
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
