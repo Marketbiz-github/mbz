@@ -109,6 +109,10 @@ export default function KPIPage() {
   const { user, role, loading: authLoading } = useAuth();
   const supabase = createClient();
 
+  useEffect(() => {
+    document.title = "Social Media Analytics | MarketBiz";
+  }, []);
+
   const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedPlatform, setSelectedPlatform] = useState('instagram');

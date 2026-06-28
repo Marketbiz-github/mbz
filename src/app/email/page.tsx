@@ -128,6 +128,10 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    document.title = "Email Blast Platform | MarketBiz";
+  }, []);
+
   // Pagination & Search States
   const [page, setPage] = useState(1);
   const [limit] = useState(5); // Default to 5 items per page

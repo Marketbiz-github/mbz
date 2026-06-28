@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Users, 
   Briefcase, 
@@ -9,6 +9,10 @@ import {
 } from 'lucide-react';
 
 export default function DashboardSummaryPage() {
+  useEffect(() => {
+    document.title = "Dashboard Overview | MarketBiz";
+  }, []);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>

@@ -63,6 +63,14 @@ export default function CampaignDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (campaign) {
+      document.title = `Campaign: ${campaign.campaign_name} | MarketBiz`;
+    } else {
+      document.title = "Campaign Report | MarketBiz";
+    }
+  }, [campaign]);
+
+  useEffect(() => {
     async function fetchCampaignDetails() {
       if (!id) return;
       setLoading(true);
@@ -290,7 +298,7 @@ export default function CampaignDetailPage() {
         </div>
 
         {/* Right side: Recharts Visualization Chart */}
-        <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col h-[400px] xl:h-auto">
+        <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col h-[400px]">
           <div className="flex justify-between items-center mb-6">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider">Activity by Time</h4>
             <div className="flex items-center gap-1.5 text-xs text-slate-500">

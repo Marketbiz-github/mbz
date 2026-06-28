@@ -45,6 +45,10 @@ export default function ClientManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+
+  useEffect(() => {
+    document.title = "Clients Management | MarketBiz";
+  }, []);
   
   const [newClient, setNewClient] = useState({
     name: '',

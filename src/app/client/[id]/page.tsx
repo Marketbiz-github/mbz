@@ -54,6 +54,14 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [tempPassword, setTempPassword] = useState<string>('');
   const [isResetting, setIsResetting] = useState(false);
 
+  useEffect(() => {
+    if (client) {
+      document.title = `Client Detail: ${client.name} | MarketBiz`;
+    } else {
+      document.title = "Client Details | MarketBiz";
+    }
+  }, [client]);
+
   // Project creation state
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [newProjName, setNewProjName] = useState('');

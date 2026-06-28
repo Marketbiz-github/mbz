@@ -1,8 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function WABlastPage() {
+  useEffect(() => {
+    document.title = "WhatsApp Blast Analytics | MarketBiz";
+  }, []);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>

@@ -48,7 +48,11 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = item.href === '/dashboard'
+            ? pathname === '/dashboard'
+            : item.href === '/client'
+              ? pathname === '/client' || (pathname?.startsWith('/client/') && !pathname?.startsWith('/client/dashboard') && !pathname?.startsWith('/client/reports') && !pathname?.startsWith('/client/notifications') && !pathname?.startsWith('/client/help'))
+              : pathname?.startsWith(item.href);
           return (
             <Link
               key={item.href}
