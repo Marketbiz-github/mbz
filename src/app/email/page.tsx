@@ -43,9 +43,88 @@ interface EmailCampaign {
   };
 }
 
+interface SearchableSelectProps {
+  options: { id: string; name: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  emptyMessage?: string;
+  className?: string;
+}
+
+function SearchableSelect({ options, value, onChange, placeholder = "-- Select --", emptyMessage = "No matches found", className = "" }: SearchableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(opt => opt.id === value);
+  const filtered = options.filter(opt => opt.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex justify-between items-center w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white cursor-pointer hover:border-cyan-500/50 transition-all select-none min-h-[36px]"
+      >
+        <span className={selectedOption ? "text-white font-medium" : "text-slate-500"}>
+          {selectedOption ? selectedOption.name : placeholder}
+        </span>
+        <span className="text-slate-500 text-[10px]">▼</span>
+      </div>
+
+      {isOpen && (
+        <div className="absolute right-0 z-50 w-full min-w-[200px] mt-1 bg-slate-950 border border-white/15 rounded-lg shadow-2xl overflow-hidden animate-in fade-in duration-100 max-h-60 flex flex-col">
+          <div className="p-2 border-b border-white/10 bg-black/40">
+            <input 
+              type="text" 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 max-h-[180px] bg-slate-950">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-slate-500 text-center">{emptyMessage}</div>
+            ) : (
+              filtered.map(opt => (
+                <div 
+                  key={opt.id}
+                  onClick={() => {
+                    onChange(opt.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  className={`px-3 py-2 text-xs text-white hover:bg-cyan-500/10 hover:text-cyan-400 cursor-pointer transition-colors ${
+                    opt.id === value ? "bg-white/5 text-cyan-400 font-bold" : ""
+                  }`}
+                >
+                  {opt.name}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EmailPage() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +143,7 @@ export default function EmailPage() {
 
   // Form State
   const [clientId, setClientId] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [name, setName] = useState('');
   const [sender, setSender] = useState('mira@ipaymu.com');
   const [sentAt, setSentAt] = useState('');
@@ -87,10 +167,18 @@ export default function EmailPage() {
     try {
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, client_services!inner(service_id, services!inner(name))')
+        .eq('client_services.services.name', 'Email Blast')
         .order('name');
       if (clientError) throw clientError;
       setClients(clientData || []);
+
+      const { data: projectData, error: projectError } = await supabase
+        .from('projects')
+        .select('id, name, client_id, services(name)');
+      if (projectError) throw projectError;
+      const emailProjects = (projectData || []).filter((p: any) => p.services?.name === 'Email Blast');
+      setAllProjects(emailProjects);
 
       const queryParams = new URLSearchParams({
         page: page.toString(),
@@ -126,10 +214,18 @@ export default function EmailPage() {
       try {
         const { data: clientData, error: clientError } = await supabase
           .from('clients')
-          .select('id, name')
+          .select('id, name, client_services!inner(service_id, services!inner(name))')
+          .eq('client_services.services.name', 'Email Blast')
           .order('name');
         if (clientError) throw clientError;
         if (!cancelled) setClients(clientData || []);
+
+        const { data: projectData, error: projectError } = await supabase
+          .from('projects')
+          .select('id, name, client_id, services(name)');
+        if (projectError) throw projectError;
+        const emailProjects = (projectData || []).filter((p: any) => p.services?.name === 'Email Blast');
+        if (!cancelled) setAllProjects(emailProjects);
 
         const queryParams = new URLSearchParams({
           page: page.toString(),
@@ -173,9 +269,21 @@ export default function EmailPage() {
     setPage(1);
   };
 
+  const handleFormClientChange = (val: string) => {
+    setClientId(val);
+    const clientProjects = allProjects.filter(p => p.client_id === val);
+    setProjectId(clientProjects[0]?.id || '');
+  };
+
   const openCreateModal = () => {
     setEditingCampaign(null);
-    setClientId(clients[0]?.id || '');
+    const defaultClient = clients[0]?.id || '';
+    setClientId(defaultClient);
+    
+    // Find projects for the first client
+    const clientProjects = allProjects.filter(p => p.client_id === defaultClient);
+    setProjectId(clientProjects[0]?.id || '');
+
     setName('');
     setSender('mira@ipaymu.com');
     // Format now to YYYY-MM-DDTHH:mm
@@ -195,9 +303,10 @@ export default function EmailPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (campaign: EmailCampaign) => {
+  const openEditModal = (campaign: EmailCampaign & { project_id?: string }) => {
     setEditingCampaign(campaign);
     setClientId(campaign.client_id);
+    setProjectId(campaign.project_id || '');
     setName(campaign.name);
     setSender(campaign.sender);
     // Format sent_at timestamp to YYYY-MM-DDTHH:mm
@@ -219,11 +328,15 @@ export default function EmailPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!projectId) {
+      alert('Please select or create a project for this client first.');
+      return;
+    }
     setModalLoading(true);
     try {
       const payload = {
-        client_id: clientId,
-        name,
+        project_id: projectId,
+        campaign_name: name,
         sender,
         sent_at: new Date(sentAt).toISOString(),
         utcid,
@@ -241,7 +354,7 @@ export default function EmailPage() {
       if (editingCampaign) {
         // Update
         const { error } = await supabase
-          .from('email_campaigns')
+          .from('email_blast_reports')
           .update(payload)
           .eq('id', editingCampaign.id);
 
@@ -249,7 +362,7 @@ export default function EmailPage() {
       } else {
         // Insert
         const { error } = await supabase
-          .from('email_campaigns')
+          .from('email_blast_reports')
           .insert([payload]);
 
         if (error) throw error;
@@ -269,7 +382,7 @@ export default function EmailPage() {
     if (!confirm('Are you sure you want to delete this campaign report?')) return;
     try {
       const { error } = await supabase
-        .from('email_campaigns')
+        .from('email_blast_reports')
         .delete()
         .eq('id', id);
 
@@ -391,16 +504,13 @@ export default function EmailPage() {
                     />
                   </div>
                   {/* Client Filter */}
-                  <select
+                  <SearchableSelect
+                    options={[{ id: "", name: "All Clients" }, ...clients]}
                     value={filterClientId}
-                    onChange={(e) => handleFilterClientChange(e.target.value)}
-                    className="bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 cursor-pointer"
-                  >
-                    <option value="">All Clients</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterClientChange(val)}
+                    placeholder="All Clients"
+                    className="w-full sm:w-48"
+                  />
                 </div>
               </div>
 
@@ -409,6 +519,7 @@ export default function EmailPage() {
                   <table className="w-full text-left min-w-[800px]">
                     <thead>
                       <tr className="bg-white/5 border-b border-white/10">
+                        <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Client & Campaign</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Sender Info</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Recipients</th>
@@ -420,12 +531,13 @@ export default function EmailPage() {
                     <tbody className="divide-y divide-white/5">
                       {campaigns.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-sm">
                             No email campaign reports found.
                           </td>
                         </tr>
                       ) : (
-                        campaigns.map((camp) => {
+                        campaigns.map((camp, index) => {
+                          const rowNumber = (page - 1) * limit + index + 1;
                           const openRate = camp.recipients > 0 ? ((camp.opens / camp.recipients) * 100).toFixed(1) : '0';
                           const clickRate = camp.recipients > 0 ? ((camp.clicks / camp.recipients) * 100).toFixed(1) : '0';
                           const dateString = new Date(camp.sent_at).toLocaleDateString('en-US', {
@@ -436,6 +548,7 @@ export default function EmailPage() {
 
                           return (
                             <tr key={camp.id} className="hover:bg-white/2 transition-colors">
+                              <td className="px-6 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
                               <td className="px-6 py-4">
                                 <div>
                                   <h4 className="text-sm font-bold text-white">{camp.name}</h4>
@@ -476,6 +589,13 @@ export default function EmailPage() {
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end gap-2">
+                                  <Link 
+                                    href={`/email/detail/${camp.id}`}
+                                    className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-cyan-400 transition-all cursor-pointer"
+                                    title="View Campaign Details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Link>
                                   <button 
                                     onClick={() => openEditModal(camp)}
                                     className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all cursor-pointer"
@@ -549,17 +669,26 @@ export default function EmailPage() {
                 {/* Client selection */}
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Select Client</label>
-                  <select
+                  <SearchableSelect
+                    options={clients}
                     value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    required
-                    className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
-                  >
-                    <option value="" disabled className="bg-slate-900">-- Choose Client --</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id} className="bg-slate-900">{c.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFormClientChange(val)}
+                    placeholder="-- Choose Client --"
+                  />
+                </div>
+
+                {/* Project selection */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Select Project</label>
+                  <SearchableSelect
+                    options={allProjects.filter(p => p.client_id === clientId)}
+                    value={projectId}
+                    onChange={(val) => setProjectId(val)}
+                    placeholder="-- Choose Project --"
+                  />
+                  {allProjects.filter(p => p.client_id === clientId).length === 0 && clientId && (
+                    <p className="text-xs text-amber-400 mt-1">This client has no active projects with the "Email Blast" service.</p>
+                  )}
                 </div>
 
                 {/* Campaign Name */}

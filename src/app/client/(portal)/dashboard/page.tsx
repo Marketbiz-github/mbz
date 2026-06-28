@@ -147,14 +147,19 @@ export default function ClientDashboard() {
 
           // 4. Get email campaigns
           const { data: emailsData } = await supabase
-            .from('email_campaigns')
-            .select('*')
-            .eq('client_id', clientInfo.id)
+            .from('email_blast_reports')
+            .select('*, projects!inner(client_id)')
+            .eq('projects.client_id', clientInfo.id)
             .order('sent_at', { ascending: false });
           
-          setEmailCampaigns(emailsData || []);
-          if (emailsData && emailsData.length > 0) {
-            setSelectedEmailCampaign(emailsData[0]);
+          const formattedEmails = (emailsData || []).map((camp: any) => ({
+            ...camp,
+            name: camp.campaign_name
+          }));
+
+          setEmailCampaigns(formattedEmails);
+          if (formattedEmails.length > 0) {
+            setSelectedEmailCampaign(formattedEmails[0]);
           }
         }
       } catch (error) {

@@ -15,7 +15,8 @@ import {
   History,
   FolderOpen,
   Key,
-  Download
+  Download,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -53,6 +54,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [tempPassword, setTempPassword] = useState<string>('');
   const [isResetting, setIsResetting] = useState(false);
 
+  // Project creation state
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [newProjName, setNewProjName] = useState('');
+  const [newProjDesc, setNewProjDesc] = useState('');
+  const [newProjWeb, setNewProjWeb] = useState('');
+  const [newProjGA, setNewProjGA] = useState('');
+  const [newProjServiceId, setNewProjServiceId] = useState('');
+  const [availableServices, setAvailableServices] = useState<{id: string, name: string}[]>([]);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+
   const handleResetPassword = async () => {
     if (!client || !client.owner_id) return;
     setIsResetting(true);
@@ -79,6 +90,64 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjName) return;
+    setIsCreatingProject(true);
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([
+          {
+            client_id: resolvedParams.id,
+            service_id: newProjServiceId,
+            name: newProjName,
+            description: newProjDesc || null,
+            website_url: newProjWeb || null,
+            ga_property_id: newProjGA || null,
+            status: 'active'
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      // If this is a Web Development project, also create the initial webdev_report
+      const serviceName = availableServices.find(s => s.id === newProjServiceId)?.name;
+      if (serviceName === 'Web Development' && data?.[0]?.id) {
+        await supabase
+          .from('webdev_reports')
+          .insert([
+            {
+              project_id: data[0].id,
+              progress_percentage: 0,
+              status: 'planning',
+              milestones: [
+                { title: 'Planning', status: 'in_progress' },
+                { title: 'Design', status: 'pending' },
+                { title: 'Development', status: 'pending' },
+                { title: 'Review', status: 'pending' },
+                { title: 'Completed', status: 'pending' }
+              ]
+            }
+          ]);
+      }
+
+      alert('Project created successfully!');
+      setIsProjectModalOpen(false);
+      setNewProjName('');
+      setNewProjDesc('');
+      setNewProjWeb('');
+      setNewProjGA('');
+      
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Failed to create project');
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -99,7 +168,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               email
             ),
             client_services (
+              service_id,
               services (
+                id,
                 name
               )
             )
@@ -137,6 +208,17 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           activeServicesList = rawServices
             ? rawServices.map((cs: any) => cs.services?.name).filter(Boolean)
             : [];
+
+          const servicesList = rawServices
+            ? rawServices.map((cs: any) => ({
+                id: cs.service_id,
+                name: cs.services?.name
+              })).filter(s => s.name && s.id)
+            : [];
+          setAvailableServices(servicesList);
+          if (servicesList.length > 0) {
+            setNewProjServiceId(servicesList[0].id);
+          }
 
           let clientStatus = 'Completed';
           if (cData.status === 'inactive') {
@@ -436,7 +518,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               >
                 <Download className="w-4 h-4" /> EXCEL
               </button>
-              <button className="flex-1 sm:flex-initial px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold transition-colors">
+              <button 
+                onClick={() => setIsProjectModalOpen(true)}
+                className="flex-1 sm:flex-initial px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-sm font-bold transition-colors cursor-pointer"
+              >
                 + Project
               </button>
             </div>
@@ -509,6 +594,104 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       </div>
+
+      {/* PROJECT CREATION MODAL */}
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-2xl shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <h3 className="text-lg font-bold text-white">Create New Project</h3>
+              <button 
+                onClick={() => setIsProjectModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateProject} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Project Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newProjName}
+                  onChange={(e) => setNewProjName(e.target.value)}
+                  placeholder="e.g. Optimasi Landing Page"
+                  className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Description</label>
+                <textarea
+                  value={newProjDesc}
+                  onChange={(e) => setNewProjDesc(e.target.value)}
+                  placeholder="Describe project details..."
+                  className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all h-20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Select Service</label>
+                <select
+                  value={newProjServiceId}
+                  onChange={(e) => setNewProjServiceId(e.target.value)}
+                  required
+                  className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+                >
+                  <option value="" disabled className="bg-slate-900">-- Choose Service --</option>
+                  {availableServices.map(s => (
+                    <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>
+                  ))}
+                </select>
+                {availableServices.length === 0 && (
+                  <p className="text-xs text-red-400 mt-1">This client has no active services. Please assign services to the client first.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Website URL (Optional)</label>
+                <input
+                  type="text"
+                  value={newProjWeb}
+                  onChange={(e) => setNewProjWeb(e.target.value)}
+                  placeholder="https://example.com"
+                  className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Google Analytics Property ID (Optional)</label>
+                <input
+                  type="text"
+                  value={newProjGA}
+                  onChange={(e) => setNewProjGA(e.target.value)}
+                  placeholder="properties/123456789"
+                  className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsProjectModalOpen(false)}
+                  className="px-5 py-3 border border-white/10 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 text-sm font-bold cursor-pointer"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingProject || availableServices.length === 0}
+                  className="px-6 py-3 bg-cyan-500 text-black rounded-lg font-bold hover:opacity-90 transition-all flex items-center justify-center min-w-[120px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isCreatingProject ? 'CREATING...' : 'CREATE PROJECT'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

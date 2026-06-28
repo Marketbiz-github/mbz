@@ -31,16 +31,16 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('email_campaigns')
-      .select('*, clients(name)', { count: 'exact' })
+      .from('email_blast_reports')
+      .select('*, projects!inner(id, name, client_id, clients!inner(name))', { count: 'exact' })
       .order('sent_at', { ascending: false });
 
     // Apply filters
     if (clientId) {
-      query = query.eq('client_id', clientId);
+      query = query.eq('projects.client_id', clientId);
     }
     if (search) {
-      query = query.ilike('name', `%${search}%`);
+      query = query.ilike('campaign_name', `%${search}%`);
     }
 
     // Fetch paginated data
@@ -53,12 +53,26 @@ export async function GET(request: NextRequest) {
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
+    // Format data to match previous structure
+    const formattedCampaigns = (data || []).map((camp: any) => ({
+      ...camp,
+      name: camp.campaign_name,
+      client_id: camp.projects?.client_id,
+      clients: {
+        name: camp.projects?.clients?.name || 'Unknown'
+      },
+      projects: {
+        id: camp.projects?.id,
+        name: camp.projects?.name
+      }
+    }));
+
     return NextResponse.json(
       {
         status: 'success',
         message: 'Campaigns retrieved successfully',
         data: {
-          campaigns: data || [],
+          campaigns: formattedCampaigns,
           pagination: {
             page,
             limit,

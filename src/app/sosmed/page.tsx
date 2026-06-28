@@ -175,16 +175,20 @@ export default function KPIPage() {
 
         // Fetch email campaigns
         const { data: emails, error: emailsError } = await supabase
-          .from('email_campaigns')
-          .select('*')
-          .eq('client_id', selectedClient.id)
+          .from('email_blast_reports')
+          .select('*, projects!inner(client_id)')
+          .eq('projects.client_id', selectedClient.id)
           .order('sent_at', { ascending: false });
         
         if (emailsError) console.error('Error fetching emails:', emailsError);
         else {
-          setEmailCampaigns(emails || []);
-          if (emails && emails.length > 0) {
-            setSelectedEmailCampaign(emails[0]);
+          const formattedEmails = (emails || []).map((camp: any) => ({
+            ...camp,
+            name: camp.campaign_name
+          }));
+          setEmailCampaigns(formattedEmails);
+          if (formattedEmails.length > 0) {
+            setSelectedEmailCampaign(formattedEmails[0]);
           } else {
             setSelectedEmailCampaign(null);
           }

@@ -20,13 +20,17 @@ export default function ClientEmailPage() {
       if (!clientId) return;
       setLoading(true);
       const { data, error } = await supabase
-        .from('email_campaigns')
-        .select('*')
-        .eq('client_id', clientId)
+        .from('email_blast_reports')
+        .select('*, projects!inner(client_id)')
+        .eq('projects.client_id', clientId)
         .order('sent_at', { ascending: false });
 
       if (!error && data) {
-        setCampaigns(data);
+        const formatted = (data || []).map((camp: any) => ({
+          ...camp,
+          name: camp.campaign_name
+        }));
+        setCampaigns(formatted);
       }
       setLoading(false);
     }
