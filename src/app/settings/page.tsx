@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings, 
   Key, 
@@ -16,37 +16,145 @@ import {
   Video,
   Database,
   Terminal,
-  ChevronRight
+  ChevronRight,
+  Loader2,
+  Check,
+  Smartphone
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type Tab = 'api' | 'team' | 'agency';
 
+interface SystemSettingsData {
+  ai_provider: string;
+  ai_api_key: string;
+  ai_base_url: string;
+  ai_model_name: string;
+  google_service_account_email: string;
+  google_private_key: string;
+  agency_name: string;
+  support_email: string;
+  support_whatsapp: string;
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('api');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Settings states
+  const [settings, setSettings] = useState<SystemSettingsData>({
+    ai_provider: 'openai',
+    ai_api_key: '',
+    ai_base_url: 'https://api.openai.com/v1',
+    ai_model_name: 'gpt-4o',
+    google_service_account_email: '',
+    google_private_key: '',
+    agency_name: 'Marketbiz Digital',
+    support_email: 'support@marketbiz.id',
+    support_whatsapp: ''
+  });
+
+  useEffect(() => {
+    document.title = "Pengaturan Sistem | MarketBiz";
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) throw new Error('Gagal mengambil pengaturan sistem');
+      const data = await res.json();
+      setSettings({
+        ai_provider: data.ai_provider || 'openai',
+        ai_api_key: data.ai_api_key || '',
+        ai_base_url: data.ai_base_url || 'https://api.openai.com/v1',
+        ai_model_name: data.ai_model_name || 'gpt-4o',
+        google_service_account_email: data.google_service_account_email || '',
+        google_private_key: data.google_private_key || '',
+        agency_name: data.agency_name || 'Marketbiz Digital',
+        support_email: data.support_email || 'support@marketbiz.id',
+        support_whatsapp: data.support_whatsapp || ''
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Gagal memuat pengaturan');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async (updatedFields: Partial<SystemSettingsData>) => {
+    setSaving(true);
+    setSaveSuccess(false);
+    setError(null);
+    try {
+      const newSettings = { ...settings, ...updatedFields };
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      });
+      if (!res.ok) throw new Error('Gagal menyimpan pengaturan');
+      const data = await res.json();
+      setSettings(data);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Gagal menyimpan pengaturan');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
+        <p className="text-sm text-slate-400">Memuat pengaturan sistem...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-          <Settings className="w-8 h-8 text-cyan-400" />
-          System Settings
-        </h1>
-        <p className="text-slate-400 mt-1">Configure your agency's engine room and team access.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <Settings className="w-8 h-8 text-cyan-400" />
+            Pengaturan Sistem
+          </h1>
+          <p className="text-slate-400 mt-1">Konfigurasi dapur agensi Anda dan koneksi API.</p>
+        </div>
+        {saveSuccess && (
+          <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-xl text-xs font-bold animate-bounce">
+            <Check className="w-4 h-4" /> PENGATURAN BERHASIL DISIMPAN
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 bg-red-500/10 text-red-400 border border-red-500/20 px-4 py-2 rounded-xl text-xs font-bold">
+            <AlertCircle className="w-4 h-4" /> {error}
+          </div>
+        )}
       </div>
 
       {/* Settings Navigation */}
       <div className="flex border-b border-white/10 gap-8">
         {[
-          { id: 'api', label: 'API Integrations', icon: Key },
-          { id: 'team', label: 'Team Management', icon: Users },
-          { id: 'agency', label: 'Agency Branding', icon: Shield },
+          { id: 'api', label: 'Integrasi API', icon: Key },
+          { id: 'team', label: 'Manajemen Tim', icon: Users },
+          { id: 'agency', label: 'Branding Agensi', icon: Shield },
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as Tab)}
             className={cn(
-              "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative",
+              "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative cursor-pointer",
               activeTab === tab.id 
                 ? "text-cyan-400" 
                 : "text-slate-500 hover:text-slate-300"
@@ -63,9 +171,21 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-6">
-          {activeTab === 'api' && <APIIntegrations />}
+          {activeTab === 'api' && (
+            <APIIntegrations 
+              settings={settings} 
+              onSave={handleSave} 
+              saving={saving} 
+            />
+          )}
           {activeTab === 'team' && <TeamManagement />}
-          {activeTab === 'agency' && <AgencyBranding />}
+          {activeTab === 'agency' && (
+            <AgencyBranding 
+              settings={settings} 
+              onSave={handleSave} 
+              saving={saving} 
+            />
+          )}
         </div>
 
         {/* Sidebar Info */}
@@ -73,25 +193,33 @@ export default function SettingsPage() {
           <div className="high-tech-card p-6 border-cyan-500/20 bg-cyan-500/5">
             <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
               <Terminal className="w-4 h-4 text-cyan-400" />
-              System Status
+              Status Sistem
             </h3>
             <div className="space-y-4">
-              <StatusItem label="API Connection" status="Operational" color="text-emerald-400" />
-              <StatusItem label="Database Latency" status="12ms" color="text-emerald-400" />
-              <StatusItem label="AI Model" status="GPT-4o Ready" color="text-cyan-400" />
+              <StatusItem 
+                label="Integrasi Inti AI" 
+                status={settings.ai_api_key ? "Terkonfigurasi" : "Belum Dikonfigurasi"} 
+                color={settings.ai_api_key ? "text-emerald-400" : "text-amber-400"} 
+              />
+              <StatusItem 
+                label="API Google Analytics" 
+                status={settings.google_service_account_email ? "Terkonfigurasi" : "Belum Dikonfigurasi"} 
+                color={settings.google_service_account_email ? "text-emerald-400" : "text-amber-400"} 
+              />
+              <StatusItem label="Latensi Database" status="15ms" color="text-emerald-400" />
             </div>
-            <button className="w-full mt-6 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2">
-              <RefreshCw className="w-3 h-3" /> RUN DIAGNOSTICS
+            <button className="w-full mt-6 py-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer">
+              <RefreshCw className="w-3 h-3 animate-spin-slow" /> JALANKAN DIAGNOSTIK
             </button>
           </div>
 
           <div className="high-tech-card p-6">
             <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
               <Lock className="w-4 h-4 text-purple-400" />
-              Security Protocol
+              Protokol Keamanan
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              All API keys are encrypted using AES-256-GCM. Never share your secret keys with anyone outside the authorized admin team.
+              Semua kredensial dan kunci disimpan dengan aman di instance Supabase menggunakan konfigurasi Row Level Security (RLS).
             </p>
           </div>
         </div>
@@ -109,66 +237,163 @@ function StatusItem({ label, status, color }: { label: string, status: string, c
   );
 }
 
-function APIIntegrations() {
+interface ComponentProps {
+  settings: SystemSettingsData;
+  onSave: (fields: Partial<SystemSettingsData>) => Promise<void>;
+  saving: boolean;
+}
+
+function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
+  // Local state for API inputs
+  const [provider, setProvider] = useState(settings.ai_provider);
+  const [apiKey, setApiKey] = useState(settings.ai_api_key);
+  const [baseUrl, setBaseUrl] = useState(settings.ai_base_url);
+  const [modelName, setModelName] = useState(settings.ai_model_name);
+
+  const [gaEmail, setGaEmail] = useState(settings.google_service_account_email);
+  const [gaPrivateKey, setGaPrivateKey] = useState(settings.google_private_key);
+
+  const handleSaveAI = () => {
+    onSave({
+      ai_provider: provider,
+      ai_api_key: apiKey,
+      ai_base_url: baseUrl,
+      ai_model_name: modelName
+    });
+  };
+
+  const handleSaveGA = () => {
+    onSave({
+      google_service_account_email: gaEmail,
+      google_private_key: gaPrivateKey
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in slide-in-from-left-4">
+      {/* 1. Google Analytics API Card (FIRST PLACE) */}
       <div className="high-tech-card p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Database className="w-5 h-5 text-cyan-400" />
-            Core AI Services
+            <Globe className="w-5 h-5 text-cyan-400" />
+            Integrasi API Google Analytics 4
           </h3>
-          <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold">CONNECTED</span>
+          <span className={cn("text-[10px] border px-2 py-0.5 rounded font-bold",
+            gaEmail ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-500/10 text-slate-500 border-white/5"
+          )}>
+            {gaEmail ? "AKTIF" : "NONAKTIF"}
+          </span>
         </div>
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OpenAI API Key</label>
-            <div className="flex gap-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Google Service Account</label>
+            <input 
+              type="email" 
+              value={gaEmail}
+              onChange={(e) => setGaEmail(e.target.value)}
+              placeholder="marketbiz-service@project-id.iam.gserviceaccount.com"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+            />
+            <p className="text-[10px] text-slate-500">
+              *Undang email ini sebagai "Viewer" di pengaturan Properti Google Analytics Anda.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Private Key Google (Format PEM)</label>
+            <textarea 
+              value={gaPrivateKey}
+              onChange={(e) => setGaPrivateKey(e.target.value)}
+              rows={5}
+              placeholder="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQ..."
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono resize-none leading-relaxed"
+            />
+          </div>
+
+          <button 
+            onClick={handleSaveGA}
+            disabled={saving}
+            className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "SIMPAN KREDENSIAL GOOGLE"}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. AI Services Card (SECOND PLACE) */}
+      <div className="high-tech-card p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Database className="w-5 h-5 text-cyan-400" />
+            Konfigurasi Layanan AI
+          </h3>
+          <span className={cn("text-[10px] border px-2 py-0.5 rounded font-bold",
+            apiKey ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-500/10 text-slate-500 border-white/5"
+          )}>
+            {apiKey ? "AKTIF" : "NONAKTIF"}
+          </span>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Penyedia AI</label>
+              <select 
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50"
+              >
+                <option value="openai">OpenAI (Default)</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="openrouter">OpenRouter (Flexible)</option>
+                <option value="custom">Custom Webhook / API</option>
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nama Model</label>
               <input 
-                type="password" 
-                value="sk-proj-••••••••••••••••" 
-                readOnly
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-slate-400 font-mono outline-none"
+                type="text" 
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder="e.g. gpt-4o, gemini-1.5-pro"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
               />
-              <button className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-white hover:bg-white/10 transition-all">
-                UPDATE
-              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="high-tech-card p-6 space-y-6">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <Globe className="w-5 h-5 text-purple-400" />
-          Social Network Connections
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <SocialCard icon={Camera} name="Meta Business API" status="Connected" color="text-pink-400" />
-          <SocialCard icon={Video} name="TikTok For Business" status="Action Required" color="text-red-400" />
-        </div>
-      </div>
-    </div>
-  );
-}
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Base URL API</label>
+            <input 
+              type="text" 
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="e.g. https://api.openai.com/v1"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+            />
+          </div>
 
-function SocialCard({ icon: Icon, name, status, color }: any) {
-  return (
-    <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between group hover:border-white/20 transition-all">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-black/40 flex items-center justify-center">
-          <Icon className={cn("w-5 h-5", status === 'Connected' ? 'text-white' : 'text-slate-500')} />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-white">{name}</p>
-          <p className={cn("text-[10px] font-bold uppercase tracking-tighter", color)}>{status}</p>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">API Key Rahasia</label>
+            <input 
+              type="password" 
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="••••••••••••••••••••••••••••"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+            />
+          </div>
+
+          <button 
+            onClick={handleSaveAI}
+            disabled={saving}
+            className="w-full py-2.5 bg-linear-to-r from-purple-500 to-indigo-500 hover:opacity-90 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "SIMPAN KONFIGURASI AI"}
+          </button>
         </div>
       </div>
-      <button className="text-slate-500 hover:text-white transition-colors">
-        <ChevronRight className="w-5 h-5" />
-      </button>
     </div>
   );
 }
@@ -184,9 +409,9 @@ function TeamManagement() {
     <div className="space-y-6 animate-in slide-in-from-left-4">
       <div className="high-tech-card overflow-hidden">
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white">Agency Members</h3>
-          <button className="bg-cyan-500 text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all">
-            INVITE MEMBER
+          <h3 className="text-lg font-bold text-white">Anggota Agensi</h3>
+          <button className="bg-cyan-500 text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all cursor-pointer">
+            UNDANG ANGGOTA
           </button>
         </div>
         <div className="divide-y divide-white/5">
@@ -209,9 +434,6 @@ function TeamManagement() {
                     <span className="text-[10px] text-slate-500 font-bold uppercase">{m.status}</span>
                   </div>
                 </div>
-                <button className="p-2 text-slate-600 hover:text-white transition-colors">
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
               </div>
             </div>
           ))}
@@ -221,76 +443,68 @@ function TeamManagement() {
   );
 }
 
-function AgencyBranding() {
+function AgencyBranding({ settings, onSave, saving }: ComponentProps) {
+  const [name, setName] = useState(settings.agency_name);
+  const [email, setEmail] = useState(settings.support_email);
+  const [whatsapp, setWhatsapp] = useState(settings.support_whatsapp);
+
+  const handleSaveBranding = () => {
+    onSave({
+      agency_name: name,
+      support_email: email,
+      support_whatsapp: whatsapp
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in slide-in-from-left-4">
       <div className="high-tech-card p-6 space-y-8">
-        <div className="flex items-center gap-6">
-          <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:border-cyan-500/30 transition-all cursor-pointer bg-white/[0.02]">
-            <Plus className="w-6 h-6 text-slate-500" />
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:border-cyan-500/30 transition-all cursor-pointer bg-white/[0.02] shrink-0">
             <span className="text-[10px] font-bold text-slate-500 uppercase">Logo</span>
           </div>
-          <div className="flex-1 space-y-4">
+          
+          <div className="flex-1 w-full space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Agency Name</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Agensi</label>
               <input 
-                value="Marketbiz Digital" 
-                readOnly
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none"
+                value={name} 
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Support Email</label>
-              <input 
-                value="support@marketbiz.id" 
-                readOnly
-                className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none"
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Email Dukungan</label>
+                <input 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">WhatsApp Dukungan</label>
+                <input 
+                  value={whatsapp} 
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                  placeholder="e.g. +628123456789"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
             </div>
           </div>
         </div>
+
+        <button 
+          onClick={handleSaveBranding}
+          disabled={saving}
+          className="w-full py-2.5 bg-linear-to-r from-cyan-500 to-indigo-500 text-black rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "SIMPAN INFORMASI BRANDING"}
+        </button>
       </div>
     </div>
-  );
-}
-
-function MoreHorizontal(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="19" cy="12" r="1" />
-      <circle cx="5" cy="12" r="1" />
-    </svg>
-  );
-}
-
-function Plus(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M5 12h14" />
-      <path d="M12 5v14" />
-    </svg>
   );
 }
