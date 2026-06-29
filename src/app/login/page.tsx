@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -27,6 +27,22 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
       return;
+    }
+
+    if (data?.user) {
+      // Check if profile is active
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('is_active')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profile && profile.is_active === false) {
+        await supabase.auth.signOut();
+        setError('Akun Anda telah dinonaktifkan. Silakan hubungi Super Admin.');
+        setLoading(false);
+        return;
+      }
     }
 
     router.push('/dashboard');

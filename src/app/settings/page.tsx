@@ -19,7 +19,10 @@ import {
   ChevronRight,
   Loader2,
   Check,
-  Smartphone
+  Smartphone,
+  Plus,
+  X,
+  Edit2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -399,46 +402,332 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
 }
 
 function TeamManagement() {
-  const members = [
-    { name: 'Sarah J.', role: 'Super Admin', email: 'sarah@marketbiz.id', status: 'Online' },
-    { name: 'Mike R.', role: 'Social Lead', email: 'mike@marketbiz.id', status: 'Away' },
-    { name: 'Alex P.', role: 'Account Manager', email: 'alex@marketbiz.id', status: 'Offline' },
-  ];
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Add modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Edit modal states
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState<any | null>(null);
+  const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editIsActive, setEditIsActive] = useState(true);
+
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/team');
+      if (!res.ok) throw new Error('Gagal mengambil daftar admin');
+      const data = await res.json();
+      setAdmins(data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      alert('Semua kolom wajib diisi.');
+      return;
+    }
+    if (password.length < 6) {
+      alert('Kata sandi harus minimal 6 karakter.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fullName, email, password })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Gagal menambahkan admin baru');
+      }
+
+      setIsModalOpen(false);
+      setFullName('');
+      setEmail('');
+      setPassword('');
+      fetchAdmins();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditModal = (admin: any) => {
+    setEditingAdmin(admin);
+    setEditFullName(admin.full_name || '');
+    setEditEmail(admin.email || '');
+    setEditIsActive(admin.is_active !== false); // Default to true if not specified
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmin) return;
+    if (!editFullName.trim() || !editEmail.trim()) {
+      alert('Semua kolom wajib diisi.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/team', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingAdmin.id,
+          fullName: editFullName,
+          email: editEmail,
+          isActive: editIsActive
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Gagal memperbarui admin');
+      }
+
+      setIsEditModalOpen(false);
+      setEditingAdmin(null);
+      fetchAdmins();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in slide-in-from-left-4">
       <div className="high-tech-card overflow-hidden">
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
           <h3 className="text-lg font-bold text-white">Anggota Agensi</h3>
-          <button className="bg-cyan-500 text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all cursor-pointer">
-            UNDANG ANGGOTA
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-cyan-500 text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            TAMBAH ADMIN
           </button>
         </div>
-        <div className="divide-y divide-white/5">
-          {members.map((m, i) => (
-            <div key={i} className="p-6 flex items-center justify-between group hover:bg-white/[0.02] transition-colors">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white">
-                  {m.name[0]}
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-white">{m.name}</p>
-                  <p className="text-xs text-slate-500">{m.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-8">
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">{m.role}</p>
-                  <div className="flex items-center gap-1.5 justify-end mt-1">
-                    <div className={cn("w-1.5 h-1.5 rounded-full", m.status === 'Online' ? 'bg-emerald-500' : 'bg-slate-600')}></div>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase">{m.status}</span>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-2">
+            <Loader2 className="w-6 h-6 text-cyan-500 animate-spin" />
+            <p className="text-xs text-slate-500">Memuat daftar anggota...</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {admins.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">Belum ada anggota admin yang terdaftar.</div>
+            ) : (
+              admins.map((m, i) => (
+                <div key={m.id || i} className="p-6 flex items-center justify-between group hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white uppercase font-mono">
+                      {m.full_name ? m.full_name[0] : '?'}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white flex items-center gap-2">
+                        {m.full_name || 'Admin Baru'}
+                        <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase",
+                          m.is_active !== false 
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            : "bg-red-500/10 text-red-400 border border-red-500/20"
+                        )}>
+                          {m.is_active !== false ? "Aktif" : "Nonaktif"}
+                        </span>
+                      </p>
+                      <p className="text-xs text-slate-500">{m.email || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest">{m.role}</p>
+                    </div>
+                    <button
+                      onClick={() => openEditModal(m)}
+                      className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all cursor-pointer"
+                      title="Edit Admin"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Modal Add Admin */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <form 
+            onSubmit={handleAddAdmin}
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+          >
+            <button 
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="text-lg font-bold text-white">Tambah Administrator Baru</h3>
+              <p className="text-xs text-slate-500 mt-1">Daftarkan akun administrator baru untuk dapur agensi Anda.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Lengkap</label>
+                <input 
+                  type="text" 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Contoh: Budi Santoso"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Alamat Email</label>
+                <input 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="budis@marketbiz.id"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Kata Sandi</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min. 6 karakter"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                />
               </div>
             </div>
-          ))}
+
+            <button 
+              type="submit"
+              disabled={saving}
+              className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              TAMBAHKAN ADMIN
+            </button>
+          </form>
         </div>
-      </div>
+      )}
+
+      {/* Modal Edit Admin */}
+      {isEditModalOpen && editingAdmin && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <form 
+            onSubmit={handleSaveEditAdmin}
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+          >
+            <button 
+              type="button"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingAdmin(null);
+              }}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="text-lg font-bold text-white">Edit Administrator</h3>
+              <p className="text-xs text-slate-500 mt-1">Perbarui detail profil atau nonaktifkan akun administrator ini.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Lengkap</label>
+                <input 
+                  type="text" 
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="Contoh: Budi Santoso"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Alamat Email</label>
+                <input 
+                  type="email" 
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="budis@marketbiz.id"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl">
+                <div>
+                  <label className="text-xs font-bold text-white block">Status Akun</label>
+                  <span className="text-[10px] text-slate-500">Nonaktifkan admin untuk memblokir akses login dasbor.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditIsActive(!editIsActive)}
+                  className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border",
+                    editIsActive 
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                      : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                  )}
+                >
+                  {editIsActive ? "AKTIF" : "NONAKTIF"}
+                </button>
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={saving}
+              className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              SIMPAN PERUBAHAN
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
