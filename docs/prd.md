@@ -1,9 +1,9 @@
 # PRD — MarketBiz Client Reporting Dashboard
 
-> **Versi:** 1.1  
-> **Tanggal:** 2026-06-27  
+> **Versi:** 1.2  
+> **Tanggal:** 2026-06-29  
 > **Author:** MarketBiz Engineering  
-> **Status:** Draft — Updated with stakeholder feedback
+> **Status:** Final — Updated with fully implemented features (SEO GA4, dynamic settings, team management, and login designs)
 
 ---
 
@@ -176,18 +176,17 @@ Metrik yang ditrack per **project**:
 
 > ✅ **Google Analytics Data API v1 GRATIS** untuk digunakan, hanya ada batasan quota (request per jam/hari per property).
 > 
-> **Fitur yang bisa dipakai:**
+> **Fitur yang sudah diimplementasikan:**
 > - **Realtime Report API**: Data up-to-the-minute (active users, pageviews real-time)
-> - **Core Report API**: Data historis (sessions, users, pageviews, bounce rate, etc.)
-> - **Quota**: Per-property basis, cukup untuk kebutuhan agency (beberapa client)
+> - **Core Report API**: Data historis (sessions, users, pageviews, bounce rate, dll.)
+> - **Penyimpanan Kredensial Dinamis**: Kredensial Google Service Account (Email & Private Key) disimpan dengan aman di database (`system_settings`) bukan di file `.env.local` agar dapat diubah dinamis oleh Admin.
+> - **Tutorial Pengaturan Interaktif**: Jika GA4 belum terhubung, halaman detail proyek menampilkan panduan langkah demi langkah beserta salinan email Service Account dan tombol pratinjau (mode demo).
 >
 > **Syarat:**
 > - Setiap client yang ambil service SEO harus share akses Google Analytics property-nya
-> - Admin menyimpan `GA4 Property ID` pada level Project (shared untuk SEO, Email Blast, dan WA Blast)
+> - Admin menyimpan `GA4 Property ID` pada level Project
 > - Sistem menggunakan Google Cloud Service Account untuk autentikasi
 >
-> **Fallback**: Jika client tidak punya GA / belum setup, Admin input data manual
-
 **Implementasi SEO Dashboard:**
 1. **Fase 1**: Manual input metrik SEO oleh Admin (seperti email blast)
 2. **Fase 2**: Integrasi Google Analytics Data API v1 untuk auto-fetch data
@@ -269,8 +268,9 @@ Metrik yang ditrack per **project**:
 
 | Tabel | Deskripsi |
 |-------|-----------|
-| `profiles` | User profiles (id, role: admin/client) |
+| `profiles` | User profiles (id, role: admin/client, email, is_active) |
 | `clients` | Data klien (id, name, industry, owner_id → profiles) |
+| `system_settings` | Kredensial global (AI Provider, AI API Key, GA Service Email & Private Key, Branding Agensi) |
 | `services` | Master services (id, name, description) |
 | `client_services` | Junction: client ↔ service (many-to-many) |
 | `campaigns` | Campaign sosmed (client_id, platform, status) |
@@ -596,13 +596,14 @@ profiles (user)
 
 ## 11. Prioritas Implementasi
 
-| Fase | Scope | Estimasi |
-|------|-------|----------|
-| **Fase 1** | Restruktur menu sidebar (Sosmed, Email Blast, WA Blast, SEO, Client), tambah semua tabel baru (`projects`, report tables, `notifications`), update CRM (Client page) dengan project management + auto-generate akun | Prioritas Tinggi |
-| **Fase 2** | Refactor Sosmed dashboard ke project-based, update Email Blast ke project-based, bangun WA Blast halaman baru | Prioritas Tinggi |
-| **Fase 3** | Bangun halaman SEO (manual input), update Client Portal + notifikasi sistem | Prioritas Tinggi |
-| **Fase 4** | Integrasi Google Analytics API untuk SEO, fitur download report (PDF/Excel) untuk admin & client | Prioritas Medium |
-| **Fase 5** | Web Development project tracking, polish & optimasi | Prioritas Medium |
+| Fase | Scope | Status |
+|------|-------|--------|
+| **Fase 1** | Restruktur menu sidebar (Sosmed, Email Blast, WA Blast, SEO, Client), tambah semua tabel baru (`projects`, report tables, `notifications`), update CRM (Client page) dengan project management + auto-generate akun | **SELESAI** |
+| **Fase 2** | Refactor Sosmed dashboard ke project-based, update Email Blast ke project-based, bangun WA Blast halaman baru | **SELESAI** |
+| **Fase 3** | Bangun halaman SEO (manual input), update Client Portal + notifikasi sistem | **SELESAI** |
+| **Fase 4** | Integrasi Google Analytics API untuk SEO, fitur download report (PDF/Excel) untuk admin & client | **SELESAI** |
+| **Fase 5** | Web Development project tracking, polish & optimasi | **SELESAI** |
+| **Fase 6** | Fitur Sistem Setting dinamis database-backed, Manajemen Tim Admin (tambah, edit, nonaktifkan), serta Login blocker untuk admin tidak aktif | **SELESAI** |
 
 ---
 
