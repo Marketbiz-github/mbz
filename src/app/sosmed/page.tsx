@@ -1,735 +1,782 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
-  BarChart as RechartsBarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area,
-  Legend
-} from 'recharts';
-import { 
-  TrendingUp, 
-  Users, 
-  MousePointer2, 
-  Share2, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Camera,
-  Video,
-  Briefcase,
-  ChevronLeft,
-  Search,
-  ChevronRight,
-  Settings2,
-  Mail,
+  Globe, 
+  Search, 
+  Plus, 
+  X, 
+  CheckCircle2, 
+  Activity,
+  Edit2,
   Loader2,
-  CheckCircle,
-  Inbox,
-  AlertOctagon,
-  Ban,
-  UserCheck
+  Eye,
+  ExternalLink,
+  Share2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/providers/AuthProvider';
 import { createClient } from '@/lib/supabase/client';
 
-// --- DATA DETAIL (Platform Specific Static Fallbacks) ---
-const platformStaticData: Record<string, any> = {
-  instagram: {
-    color: '#E1306C',
-    stats: [
-      { label: 'IG Reach', value: '450K', growth: '+15.2%', icon: TrendingUp, color: 'text-pink-400' },
-      { label: 'New Followers', value: '12.2K', growth: '+5.2%', icon: Users, color: 'text-pink-400' },
-      { label: 'Eng. Rate', value: '4.2%', growth: '+1.1%', icon: MousePointer2, color: 'text-pink-400' },
-      { label: 'Reels Shares', value: '3.1K', growth: '+22.3%', icon: Share2, color: 'text-pink-400' },
-    ],
-    chart: [
-      { name: 'Mon', reach: 4000, engagement: 2400 },
-      { name: 'Tue', reach: 3000, engagement: 1398 },
-      { name: 'Wed', reach: 5000, engagement: 3800 },
-      { name: 'Thu', reach: 2780, engagement: 3908 },
-      { name: 'Fri', reach: 1890, engagement: 4800 },
-      { name: 'Sat', reach: 2390, engagement: 3800 },
-      { name: 'Sun', reach: 3490, engagement: 4300 },
-    ]
-  },
-  tiktok: {
-    color: '#00F2EA',
-    stats: [
-      { label: 'TT Views', value: '1.2M', growth: '+45.8%', icon: TrendingUp, color: 'text-cyan-400' },
-      { label: 'New Followers', value: '28.5K', growth: '+12.4%', icon: Users, color: 'text-cyan-400' },
-      { label: 'Completion Rate', value: '18.5%', growth: '+2.5%', icon: MousePointer2, color: 'text-cyan-400' },
-      { label: 'TT Shares', value: '15.4K', growth: '+35.1%', icon: Share2, color: 'text-cyan-400' },
-    ],
-    chart: [
-      { name: 'Mon', reach: 8000, engagement: 4400 },
-      { name: 'Tue', reach: 9500, engagement: 5398 },
-      { name: 'Wed', reach: 12000, engagement: 8800 },
-      { name: 'Thu', reach: 10780, engagement: 7908 },
-      { name: 'Fri', reach: 14890, engagement: 9800 },
-      { name: 'Sat', reach: 13390, engagement: 8800 },
-      { name: 'Sun', reach: 15490, engagement: 11300 },
-    ]
-  },
-  linkedin: {
-    color: '#0A66C2',
-    stats: [
-      { label: 'LI Impressions', value: '85K', growth: '+8.2%', icon: TrendingUp, color: 'text-blue-400' },
-      { label: 'New Connections', value: '450', growth: '+2.1%', icon: Users, color: 'text-blue-400' },
-      { label: 'Click Rate', value: '2.8%', growth: '-0.5%', icon: MousePointer2, color: 'text-blue-400' },
-      { label: 'Reposts', value: '120', growth: '+14.3%', icon: Share2, color: 'text-blue-400' },
-    ],
-    chart: [
-      { name: 'Mon', reach: 1200, engagement: 400 },
-      { name: 'Tue', reach: 1500, engagement: 598 },
-      { name: 'Wed', reach: 2000, engagement: 800 },
-      { name: 'Thu', reach: 1780, engagement: 608 },
-      { name: 'Fri', reach: 2200, engagement: 900 },
-      { name: 'Sat', reach: 800, engagement: 200 },
-      { name: 'Sun', reach: 900, engagement: 250 },
-    ]
-  }
-};
+interface Project {
+  id: string;
+  name: string;
+  website_url: string;
+  status: string;
+  client_id: string;
+  active_platforms?: string;
+  clients?: {
+    name: string;
+  };
+}
 
-const platforms = [
-  { id: 'instagram', label: 'Instagram', icon: Camera },
-  { id: 'tiktok', label: 'TikTok', icon: Video },
-  { id: 'linkedin', label: 'LinkedIn', icon: Briefcase },
-  { id: 'email', label: 'Email Campaigns', icon: Mail },
-];
+interface Client {
+  id: string;
+  name: string;
+}
 
-export default function KPIPage() {
-  const { user, role, loading: authLoading } = useAuth();
-  const supabase = createClient();
+interface SearchableSelectProps {
+  options: Array<{ id: string; name: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  emptyMessage?: string;
+  className?: string;
+}
+
+function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder = "Pilih Klien...",
+  emptyMessage = "Klien tidak ditemukan",
+  className = ""
+}: SearchableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    document.title = "Social Media Analytics | MarketBiz";
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [view, setView] = useState<'list' | 'detail'>('list');
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [selectedPlatform, setSelectedPlatform] = useState('instagram');
+  const selectedOption = options.find(opt => opt.id === value);
+  const filtered = options.filter(opt => opt.name.toLowerCase().includes(search.toLowerCase()));
 
-  // Database states
-  const [clients, setClients] = useState<any[]>([]);
-  const [emailCampaigns, setEmailCampaigns] = useState<any[]>([]);
-  const [selectedEmailCampaign, setSelectedEmailCampaign] = useState<any>(null);
-  const [performanceLogs, setPerformanceLogs] = useState<any[]>([]);
-  
-  const [dataLoading, setDataLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // 1. Initial Load of Clients based on role
-  useEffect(() => {
-    if (authLoading || !user) return;
-
-    const loadClients = async () => {
-      setDataLoading(true);
-      try {
-        if (role === 'admin') {
-          const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .order('name');
-          if (error) throw error;
-          setClients(data || []);
-        } else if (role === 'client') {
-          const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('owner_id', user.id);
-          if (error) throw error;
-          
-          if (data && data.length > 0) {
-            setClients(data);
-            setSelectedClient(data[0]);
-            setView('detail');
-          }
-        }
-      } catch (err) {
-        console.error('Error loading clients:', err);
-      } finally {
-        setDataLoading(false);
-      }
-    };
-
-    loadClients();
-  }, [user, role, authLoading, supabase]);
-
-  // 2. Load Client specific metrics (social logs & email campaigns)
-  useEffect(() => {
-    if (!selectedClient) return;
-
-    const loadMetrics = async () => {
-      try {
-        // Fetch performance logs
-        const { data: logs, error: logsError } = await supabase
-          .from('performance_logs')
-          .select('*, campaigns!inner(platform, client_id)')
-          .eq('campaigns.client_id', selectedClient.id);
-        if (logsError) console.error('Error fetching logs:', logsError);
-        else setPerformanceLogs(logs || []);
-
-        // Fetch email campaigns
-        const { data: emails, error: emailsError } = await supabase
-          .from('email_blast_reports')
-          .select('*, projects!inner(client_id)')
-          .eq('projects.client_id', selectedClient.id)
-          .order('sent_at', { ascending: false });
-        
-        if (emailsError) console.error('Error fetching emails:', emailsError);
-        else {
-          const formattedEmails = (emails || []).map((camp: any) => ({
-            ...camp,
-            name: camp.campaign_name
-          }));
-          setEmailCampaigns(formattedEmails);
-          if (formattedEmails.length > 0) {
-            setSelectedEmailCampaign(formattedEmails[0]);
-          } else {
-            setSelectedEmailCampaign(null);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading metrics:', err);
-      }
-    };
-
-    loadMetrics();
-  }, [selectedClient, supabase]);
-
-  const handleViewDetail = (client: any) => {
-    setSelectedClient(client);
-    setView('detail');
-    setSelectedPlatform('instagram');
-  };
-
-  const getFilteredClients = () => {
-    return clients.filter(c => 
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.industry.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  };
-
-  // Compile Social Stats dynamically or fallback
-  const getSocialPlatformData = (platformId: string) => {
-    const staticData = platformStaticData[platformId];
-    const logs = performanceLogs.filter(log => log.campaigns?.platform === platformId);
-    
-    if (logs.length === 0) return staticData;
-
-    const totalReach = logs.reduce((sum, l) => sum + (l.reach || 0), 0);
-    const totalEngagement = logs.reduce((sum, l) => sum + (l.engagement || 0), 0);
-    const avgEngRate = totalReach > 0 ? ((totalEngagement / totalReach) * 100).toFixed(1) + '%' : '0%';
-
-    // Group logs by date for chart
-    const chart = logs
-      .slice(-7)
-      .map(log => ({
-        name: new Date(log.log_date).toLocaleDateString('en-US', { weekday: 'short' }),
-        reach: log.reach,
-        engagement: log.engagement
-      }));
-
-    return {
-      color: staticData.color,
-      stats: [
-        { label: `${platformId.toUpperCase()} Reach`, value: totalReach.toLocaleString(), growth: '+10.5%', icon: TrendingUp, color: `text-cyan-400` },
-        { label: 'Engagements', value: totalEngagement.toLocaleString(), growth: '+4.2%', icon: Users, color: `text-cyan-400` },
-        { label: 'Eng. Rate', value: avgEngRate, growth: '+0.5%', icon: MousePointer2, color: `text-cyan-400` },
-        { label: 'Activity Logs', value: logs.length.toString(), growth: 'Stable', icon: Share2, color: `text-cyan-400` },
-      ],
-      chart: chart.length > 0 ? chart : staticData.chart
-    };
-  };
-
-  if (authLoading || dataLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
-        <p className="text-sm text-slate-500">Initializing secure session...</p>
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      <div 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex justify-between items-center w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white cursor-pointer hover:border-cyan-500/50 transition-all select-none min-h-[36px]"
+      >
+        <span className={selectedOption ? "text-white font-medium" : "text-slate-500"}>
+          {selectedOption ? selectedOption.name : placeholder}
+        </span>
+        <span className="text-slate-500 text-[10px]">▼</span>
       </div>
-    );
-  }
 
-  // --- RENDER LIST VIEW (For Admin only) ---
-  if (view === 'list' && role === 'admin') {
-    return (
-      <div className="space-y-8 animate-in fade-in duration-500">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      {isOpen && (
+        <div className="absolute right-0 z-50 w-full min-w-[200px] mt-1 bg-slate-950 border border-white/15 rounded-lg shadow-2xl overflow-hidden animate-in fade-in duration-100 max-h-60 flex flex-col">
+          <div className="p-2 border-b border-white/10 bg-black/40">
+            <input 
+              type="text" 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari..."
+              className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+              autoFocus
+            />
+          </div>
+          <div className="overflow-y-auto flex-1 max-h-[180px] bg-slate-950">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-xs text-slate-500 text-center">{emptyMessage}</div>
+            ) : (
+              filtered.map(opt => (
+                <div 
+                  key={opt.id}
+                  onClick={() => {
+                    onChange(opt.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  className={`px-3 py-2 text-xs text-white hover:bg-cyan-500/10 hover:text-cyan-400 cursor-pointer transition-colors ${
+                    opt.id === value ? "bg-white/5 text-cyan-400 font-bold" : ""
+                  }`}
+                >
+                  {opt.name}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Real Social SVG Logos
+function InstagramLogo({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <radialGradient id="ig-grad-list" cx="30%" cy="107%" r="130%">
+        <stop offset="0%" stopColor="#fdf497" />
+        <stop offset="5%" stopColor="#fdf497" />
+        <stop offset="45%" stopColor="#fd5949" />
+        <stop offset="60%" stopColor="#d6249f" />
+        <stop offset="90%" stopColor="#285AEB" />
+      </radialGradient>
+      <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig-grad-list)" />
+      <rect x="5" y="5" width="14" height="14" rx="4" stroke="white" strokeWidth="2" fill="none" />
+      <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="2" fill="none" />
+      <circle cx="17.5" cy="6.5" r="1.25" fill="white" />
+    </svg>
+  );
+}
+
+function TikTokLogo({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.53 2c.07.1.15.2.22.3a6.83 6.83 0 0 0 5.16 3.1c.14.01.28.02.42.02v3.74a10.6 10.6 0 0 1-5.7-1.83v7.35a5.55 5.55 0 0 1-5.55 5.56A5.55 5.55 0 0 1 1.52 14.7a5.55 5.55 0 0 1 5.34-5.54c.26 0 .52.02.77.06v3.73c-.25-.06-.5-.09-.77-.09a1.81 1.81 0 0 0-1.81 1.82 1.81 1.81 0 0 0 1.81 1.82 1.81 1.81 0 0 0 1.81-1.82V2.01h3.86Z" fill="#00F2EA" />
+      <path d="M12.5 2.03c.07.1.15.2.22.3a6.83 6.83 0 0 0 5.16 3.1c.14.01.28.02.42.02v3.74a10.6 10.6 0 0 1-5.7-1.83v7.35a5.55 5.55 0 0 1-5.55 5.56A5.55 5.55 0 0 1 1.49 14.7a5.55 5.55 0 0 1 5.34-5.54c.26 0 .52.02.77.06v3.73c-.25-.06-.5-.09-.77-.09a1.81 1.81 0 0 0-1.81 1.82 1.81 1.81 0 0 0 1.81 1.82 1.81 1.81 0 0 0 1.81-1.82V2.04h3.86Z" fill="#FF007F" className="mix-blend-lighten opacity-80" />
+    </svg>
+  );
+}
+
+function LinkedInLogo({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="4" fill="#0A66C2" />
+      <path d="M6.5 6.5h3v10h-3zM8 5a1.25 1.25 0 1 1 0-2.5A1.25 1.25 0 0 1 8 5zM11 9.5h2.8v1.36h.04c.39-.74 1.34-1.52 2.76-1.52 2.95 0 3.5 1.94 3.5 4.47v5.69h-3.13v-4.9c0-1.17-.02-2.67-1.63-2.67-1.63 0-1.88 1.27-1.88 2.58v4.99H11v-10z" fill="white" />
+    </svg>
+  );
+}
+
+function FacebookLogo({ className = "w-3.5 h-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
+      <path d="M14 12h-2v7H9v-7H7.5V9.5H9V8.1c0-1.6 1-2.6 2.6-2.6.8 0 1.5.06 1.7.08v2h-1.2c-.8 0-1 .4-1 1v1.4h2.2L14 12Z" fill="white" />
+    </svg>
+  );
+}
+
+const platforms = [
+  { id: 'instagram', label: 'Instagram', icon: InstagramLogo, color: '#E1306C' },
+  { id: 'tiktok', label: 'TikTok', icon: TikTokLogo, color: '#00F2EA' },
+  { id: 'linkedin', label: 'LinkedIn', icon: LinkedInLogo, color: '#0A66C2' },
+  { id: 'facebook', label: 'Facebook', icon: FacebookLogo, color: '#1877F2' }
+];
+
+export default function SosmedOverviewPage() {
+  const supabase = createClient();
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [sosmedServiceId, setSosmedServiceId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pagination & Filters
+  const [page, setPage] = useState(1);
+  const [limit] = useState(5);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [filterClientId, setFilterClientId] = useState('');
+
+  // Project Creation Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProjClientId, setNewProjClientId] = useState('');
+  const [newProjName, setNewProjName] = useState('');
+  const [newProjDesc, setNewProjDesc] = useState('');
+  const [newProjUrl, setNewProjUrl] = useState('');
+  const [newProjPlatforms, setNewProjPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editUrl, setEditUrl] = useState('');
+  const [editStatus, setEditStatus] = useState('active');
+  const [editPlatforms, setEditPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    document.title = "Sosmed Performance | MarketBiz";
+    fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (sosmedServiceId) {
+      fetchData();
+    }
+  }, [page, filterClientId, sosmedServiceId]);
+
+  const fetchInitialData = async () => {
+    try {
+      const { data: svcData } = await supabase
+        .from('services')
+        .select('id')
+        .eq('name', 'Sosmed')
+        .single();
+      if (svcData) {
+        setSosmedServiceId(svcData.id);
+      }
+
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('id, name, client_services!inner(service_id, services!inner(name))')
+        .eq('client_services.services.name', 'Sosmed');
+
+      setClients(clientsData || []);
+    } catch (err) {
+      console.error('Error fetching initial settings metadata:', err);
+    }
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      let query = supabase
+        .from('projects')
+        .select('id, name, website_url, status, client_id, active_platforms, clients(name)', { count: 'exact' })
+        .eq('service_id', sosmedServiceId);
+
+      if (filterClientId) {
+        query = query.eq('client_id', filterClientId);
+      }
+
+      if (search.trim()) {
+        query = query.ilike('name', `%${search}%`);
+      }
+
+      const { data, count, error: fetchErr } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (fetchErr) throw fetchErr;
+
+      setProjects(data as any[] || []);
+      setTotalCount(count || 0);
+      setTotalPages(Math.ceil((count || 0) / limit));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjClientId || !newProjName.trim() || !newProjUrl.trim()) {
+      alert('Klien, nama proyek, dan URL website wajib diisi.');
+      return;
+    }
+    if (newProjPlatforms.length === 0) {
+      alert('Pilih minimal satu platform sosial media.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error: insertErr } = await supabase
+        .from('projects')
+        .insert({
+          client_id: newProjClientId,
+          service_id: sosmedServiceId,
+          name: newProjName,
+          description: newProjDesc,
+          website_url: newProjUrl,
+          status: 'active',
+          active_platforms: newProjPlatforms.join(',')
+        });
+
+      if (insertErr) throw insertErr;
+
+      setIsCreateModalOpen(false);
+      setNewProjClientId('');
+      setNewProjName('');
+      setNewProjDesc('');
+      setNewProjUrl('');
+      setNewProjPlatforms(['instagram', 'tiktok', 'linkedin', 'facebook']);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditModal = (project: Project) => {
+    setEditingProject(project);
+    setEditName(project.name || '');
+    setEditUrl(project.website_url || '');
+    setEditStatus(project.status || 'active');
+    setEditPlatforms(project.active_platforms ? project.active_platforms.split(',') : ['instagram', 'tiktok', 'linkedin', 'facebook']);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+    if (!editName.trim() || !editUrl.trim()) {
+      alert('Nama proyek dan URL website wajib diisi.');
+      return;
+    }
+    if (editPlatforms.length === 0) {
+      alert('Pilih minimal satu platform sosial media.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error: updateErr } = await supabase
+        .from('projects')
+        .update({
+          name: editName,
+          website_url: editUrl,
+          status: editStatus,
+          active_platforms: editPlatforms.join(',')
+        })
+        .eq('id', editingProject.id);
+
+      if (updateErr) throw updateErr;
+
+      setIsEditModalOpen(false);
+      setEditingProject(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const togglePlatform = (id: string, isEdit: boolean = false) => {
+    const list = isEdit ? editPlatforms : newProjPlatforms;
+    const setter = isEdit ? setEditPlatforms : setNewProjPlatforms;
+
+    if (list.includes(id)) {
+      setter(list.filter(p => p !== id));
+    } else {
+      setter([...list, id]);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Sosmed Projects</h1>
+          <p className="text-slate-400 mt-1">Kelola proyek dan laporan performa sosial media agensi.</p>
+        </div>
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="bg-cyan-500 text-black px-4 py-2.5 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all cursor-pointer flex items-center gap-1.5"
+        >
+          <Plus className="w-4 h-4" />
+          PROYEK SOSMED BARU
+        </button>
+      </div>
+
+      {/* Stats Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="high-tech-card p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Share2 className="w-6 h-6" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">KPI Dashboard</h1>
-            <p className="text-slate-400 mt-1">Select a client to view detailed performance metrics.</p>
-          </div>
-          <Link 
-            href="/crm"
-            className="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-lg text-xs font-bold text-slate-300 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <Settings2 className="w-4 h-4" />
-            MANAGE CLIENTS
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="high-tech-card p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Avg. Growth</p>
-              <h3 className="text-2xl font-bold text-white">+8.4%</h3>
-            </div>
-          </div>
-          <div className="high-tech-card p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Total Accounts</p>
-              <h3 className="text-2xl font-bold text-white">{clients.length}</h3>
-            </div>
-          </div>
-          <div className="high-tech-card p-6 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <MousePointer2 className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Registered Clients</p>
-              <h3 className="text-2xl font-bold text-white">{clients.length}</h3>
-            </div>
+            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Total Proyek</p>
+            <h3 className="text-2xl font-bold text-white">{totalCount}</h3>
           </div>
         </div>
-
-        <div className="high-tech-card overflow-hidden">
-          <div className="p-6 border-b border-white/10 flex items-center justify-between">
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input 
-                type="text" 
-                placeholder="Search clients performance..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-cyan-500/50"
-              />
-            </div>
+        <div className="high-tech-card p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <Activity className="w-6 h-6" />
           </div>
+          <div>
+            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Proyek Aktif</p>
+            <h3 className="text-2xl font-bold text-white">
+              {projects.filter(p => p.status === 'active').length}
+            </h3>
+          </div>
+        </div>
+        <div className="high-tech-card p-6 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <Globe className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Klien Terdaftar</p>
+            <h3 className="text-2xl font-bold text-white">{clients.length}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Filter & Table Card */}
+      <div className="high-tech-card overflow-hidden">
+        <div className="p-6 border-b border-white/10 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Cari nama proyek..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fetchData()}
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50"
+            />
+          </div>
+
+          <div className="flex gap-4 w-full md:w-auto items-center">
+            <SearchableSelect 
+              options={clients} 
+              value={filterClientId} 
+              onChange={(val) => setFilterClientId(val)} 
+            />
+            {filterClientId && (
+              <button 
+                onClick={() => setFilterClientId('')}
+                className="text-xs text-slate-400 hover:text-white cursor-pointer underline"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-2">
+            <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+            <p className="text-xs text-slate-500">Memuat data proyek...</p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left min-w-[800px]">
               <thead>
                 <tr className="bg-white/5 border-b border-white/10">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Client Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Industry</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16">No</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Klien & Nama Proyek</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website URL</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Platform Aktif</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {getFilteredClients().map((client) => (
-                  <tr key={client.id} className="hover:bg-white/2 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-linear-to-br from-cyan-500 to-purple-500 flex items-center justify-center font-bold text-white text-xs">
-                          {client.name[0]}
-                        </div>
-                        <span className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{client.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-400">{client.industry}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Active
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleViewDetail(client)}
-                        className="p-2 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all group/btn flex items-center gap-2 ml-auto cursor-pointer"
-                      >
-                        <span className="text-xs font-bold">INSIGHTS</span>
-                        <ChevronRight className="w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
-                      </button>
+                {projects.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-500">
+                      Tidak ada proyek sosial media yang terdaftar.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  projects.map((project, index) => {
+                    const rowNumber = (page - 1) * limit + index + 1;
+                    const activePlats = project.active_platforms ? project.active_platforms.split(',') : ['instagram', 'tiktok', 'linkedin', 'facebook'];
+                    return (
+                      <tr key={project.id} className="hover:bg-white/2 transition-colors group">
+                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{rowNumber}</td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <span className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors block">
+                              {project.name}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-bold block uppercase mt-0.5">
+                              Klien: {project.clients?.name || '-'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <a 
+                            href={project.website_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
+                          >
+                            {project.website_url}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2.5">
+                            {activePlats.includes('instagram') && <InstagramLogo className="w-4.5 h-4.5" />}
+                            {activePlats.includes('tiktok') && <TikTokLogo className="w-4.5 h-4.5" />}
+                            {activePlats.includes('linkedin') && <LinkedInLogo className="w-4.5 h-4.5" />}
+                            {activePlats.includes('facebook') && <FacebookLogo className="w-4.5 h-4.5" />}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                            project.status === 'active' 
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : project.status === 'completed'
+                                ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                                : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                          )}>
+                            {project.status === 'active' ? 'Ongoing' : project.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link 
+                              href={`/sosmed/detail/${project.id}`}
+                              className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-slate-400 hover:text-cyan-400 hover:border-cyan-500/30 transition-all"
+                              title="Lihat Detail Analitik"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Link>
+                            <button 
+                              onClick={() => openEditModal(project)}
+                              className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
+                              title="Edit Detail Proyek"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="p-6 border-t border-white/10 flex items-center justify-between">
+            <span className="text-xs text-slate-500">
+              Menampilkan Halaman {page} dari {totalPages}
+            </span>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setPage(p => Math.max(p - 1, 1))} 
+                disabled={page === 1}
+                className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/10 disabled:opacity-50 cursor-pointer"
+              >
+                Sebelumnya
+              </button>
+              <button 
+                onClick={() => setPage(p => Math.min(p + 1, totalPages))} 
+                disabled={page === totalPages}
+                className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-white hover:bg-white/10 disabled:opacity-50 cursor-pointer"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    );
-  }
 
-  // --- RENDER DETAIL VIEW (Instagram, TikTok, LinkedIn) ---
-  const currentData = selectedPlatform !== 'email' ? getSocialPlatformData(selectedPlatform) : null;
-
-  return (
-    <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="flex items-center gap-4">
-          {role === 'admin' && (
+      {/* Modal Proyek Baru */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <form 
+            onSubmit={handleCreateProject}
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+          >
             <button 
-              onClick={() => setView('list')}
-              className="p-2 bg-white/5 border border-white/10 rounded-lg text-slate-400 hover:text-white transition-all cursor-pointer"
+              type="button"
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
-          )}
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-              {selectedClient?.name || 'Client Insights'}
-            </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Detailed performance metrics per channel.
-            </p>
-          </div>
+
+            <div>
+              <h3 className="text-lg font-bold text-white">Buat Proyek Sosmed Baru</h3>
+              <p className="text-xs text-slate-500 mt-1">Daftarkan target proyek pelacakan performa sosial media klien agensi.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Pilih Klien</label>
+                <SearchableSelect 
+                  options={clients} 
+                  value={newProjClientId} 
+                  onChange={(val) => setNewProjClientId(val)} 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek</label>
+                <input 
+                  type="text" 
+                  value={newProjName}
+                  onChange={(e) => setNewProjName(e.target.value)}
+                  placeholder="Contoh: IG & TikTok PT Sinar Jaya"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {platforms.map(p => {
+                    const isChecked = newProjPlatforms.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => togglePlatform(p.id, false)}
+                        className={cn("flex items-center gap-2 p-2 rounded-lg border text-xs font-bold transition-all cursor-pointer",
+                          isChecked 
+                            ? "bg-white/10 border-white/20 text-white" 
+                            : "bg-transparent border-white/5 text-slate-500 hover:text-white"
+                        )}
+                      >
+                        <p.icon className="w-4 h-4" />
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Deskripsi Singkat</label>
+                <textarea 
+                  value={newProjDesc}
+                  onChange={(e) => setNewProjDesc(e.target.value)}
+                  placeholder="Keterangan kampanye atau detail target..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 min-h-[60px]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL</label>
+                <input 
+                  type="url" 
+                  value={newProjUrl}
+                  onChange={(e) => setNewProjUrl(e.target.value)}
+                  placeholder="https://sinarjaya.com"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                />
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={saving}
+              className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              SIMPAN PROYEK
+            </button>
+          </form>
         </div>
-        
-        {/* Platform Selector */}
-        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 overflow-x-auto max-w-full">
-          {platforms.map((p) => {
-            const Icon = p.icon;
-            const isActive = selectedPlatform === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPlatform(p.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-xs md:text-sm font-bold transition-all whitespace-nowrap cursor-pointer",
-                  isActive 
-                    ? "bg-white/10 text-white shadow-lg" 
-                    : "text-slate-500 hover:text-slate-300"
-                )}
-              >
-                <Icon className={cn("w-4 h-4", isActive && (
-                  p.id === 'instagram' ? "text-pink-400" : 
-                  p.id === 'tiktok' ? "text-cyan-400" : 
-                  p.id === 'linkedin' ? "text-blue-400" : "text-indigo-400"
-                ))} />
-                {p.label}
-              </button>
-            );
-          })}
+      )}
+
+      {/* Modal Edit Proyek */}
+      {isEditModalOpen && editingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <form 
+            onSubmit={handleSaveEdit}
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+          >
+            <button 
+              type="button"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingProject(null);
+              }}
+              className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <h3 className="text-lg font-bold text-white">Edit Proyek Sosmed</h3>
+              <p className="text-xs text-slate-500 mt-1">Ubah detail proyek pelacakan sosial media.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek</label>
+                <input 
+                  type="text" 
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Contoh: IG Growth PT Sinar Jaya"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {platforms.map(p => {
+                    const isChecked = editPlatforms.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => togglePlatform(p.id, true)}
+                        className={cn("flex items-center gap-2 p-2 rounded-lg border text-xs font-bold transition-all cursor-pointer",
+                          isChecked 
+                            ? "bg-white/10 border-white/20 text-white" 
+                            : "bg-transparent border-white/5 text-slate-500 hover:text-white"
+                        )}
+                      >
+                        <p.icon className="w-4 h-4" />
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL</label>
+                <input 
+                  type="url" 
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  placeholder="https://sinarjaya.com"
+                  required
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status Proyek</label>
+                <select 
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50"
+                >
+                  <option value="active" className="bg-slate-950">Ongoing</option>
+                  <option value="completed" className="bg-slate-950">Completed</option>
+                  <option value="on_hold" className="bg-slate-950">On Hold</option>
+                  <option value="cancelled" className="bg-slate-950">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <button 
+              type="submit"
+              disabled={saving}
+              className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              SIMPAN PERUBAHAN
+            </button>
+          </form>
         </div>
-      </div>
-
-      {/* RENDER DYNAMIC EMAIL REPORT (SCREENSHOT REPLICA) */}
-      {selectedPlatform === 'email' ? (
-        <div className="space-y-6">
-          {/* Campaign Selector if multiple exist */}
-          {emailCampaigns.length > 1 && (
-            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-3 rounded-xl max-w-md">
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Select Campaign Report:</span>
-              <select
-                value={selectedEmailCampaign?.id || ''}
-                onChange={(e) => setSelectedEmailCampaign(emailCampaigns.find(ec => ec.id === e.target.value))}
-                className="bg-transparent text-sm text-white font-bold focus:outline-none border-b border-white/20 pb-0.5 cursor-pointer"
-              >
-                {emailCampaigns.map(ec => (
-                  <option key={ec.id} value={ec.id} className="bg-slate-900">{ec.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {selectedEmailCampaign ? (
-            <div className="space-y-6">
-              {/* Campaign Header */}
-              <div className="flex flex-col space-y-2">
-                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  Campaign Report: <span className="text-indigo-400">{selectedEmailCampaign.name}</span>
-                </h2>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
-                  <span>Sent {new Date(selectedEmailCampaign.sent_at).toLocaleDateString('en-US', {
-                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
-                  })}</span>
-                  {selectedEmailCampaign.utcid && (
-                    <>
-                      <span className="text-slate-600">•</span>
-                      <span>UTCID: {selectedEmailCampaign.utcid}</span>
-                    </>
-                  )}
-                  {selectedEmailCampaign.sender && (
-                    <>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-slate-300 font-medium">{selectedEmailCampaign.sender}</span>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-wide pt-1">
-                  <CheckCircle className="w-4 h-4" />
-                  Done sending
-                </div>
-              </div>
-
-              {/* Grid Layout (Screenshot replica) */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Column 1: Metrik Kiri */}
-                <div className="space-y-6">
-                  {/* Recipients */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Recipients</p>
-                    <h3 className="text-4xl font-bold text-white">{selectedEmailCampaign.recipients.toLocaleString()}</h3>
-                  </div>
-
-                  {/* Open Rate */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Open Rate</p>
-                    <h3 className="text-4xl font-bold text-white">
-                      {selectedEmailCampaign.opens}{' '}
-                      <span className="text-lg font-bold text-indigo-400 ml-1">
-                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.opens / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
-                      </span>
-                    </h3>
-                  </div>
-
-                  {/* Click Rate */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Click Rate</p>
-                    <h3 className="text-4xl font-bold text-white">
-                      {selectedEmailCampaign.clicks}{' '}
-                      <span className="text-lg font-bold text-indigo-400 ml-1">
-                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.clicks / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
-                      </span>
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Column 2: Metrik Tengah */}
-                <div className="space-y-6">
-                  {/* Replies */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Replies</p>
-                    <h3 className="text-4xl font-bold text-slate-400">
-                      {selectedEmailCampaign.replies > 0 ? selectedEmailCampaign.replies : 'No Replies'}
-                    </h3>
-                  </div>
-
-                  {/* Unsubscribes */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Unsubscribes</p>
-                    <h3 className="text-4xl font-bold text-slate-400">
-                      {selectedEmailCampaign.unsubscribes > 0 ? selectedEmailCampaign.unsubscribes : 'No Unsubscribes'}
-                    </h3>
-                  </div>
-
-                  {/* Open Rate Excl Apple */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Open Rate <span className="text-[9px] text-slate-500 lowercase">excluding Apple</span></p>
-                      <span className="text-[8px] bg-white/10 px-1 py-0.5 rounded text-slate-400 font-bold uppercase">MPP</span>
-                    </div>
-                    <h3 className="text-4xl font-bold text-white mt-2">
-                      {selectedEmailCampaign.opens_excl_apple}{' '}
-                      <span className="text-lg font-bold text-indigo-400 ml-1">
-                        ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.opens_excl_apple / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
-                      </span>
-                    </h3>
-                  </div>
-                </div>
-
-                {/* Column 3: Graph and Bounces */}
-                <div className="space-y-6">
-                  {/* Chart: Activity by Time */}
-                  <div className="high-tech-card p-6 border-white/5 bg-white/1 flex flex-col h-[280px]">
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Activity by Time</h4>
-                    <div className="flex-1 min-h-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart data={[
-                          { name: 'Recipients', count: selectedEmailCampaign.recipients, fill: '#00f2ea' },
-                          { name: 'Opens', count: selectedEmailCampaign.opens, fill: '#6366f1' },
-                          { name: 'Clicks', count: selectedEmailCampaign.clicks, fill: '#f59e0b' },
-                          { name: 'Replies', count: selectedEmailCampaign.replies, fill: '#94a3b8' }
-                        ]}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" vertical={false} />
-                          <XAxis dataKey="name" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff10', borderRadius: '8px', color: '#fff', fontSize: 10 }}
-                            cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                          />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={32}>
-                            {
-                              [
-                                { fill: '#00F2EA' },
-                                { fill: '#6366F1' },
-                                { fill: '#F59E0B' },
-                                { fill: '#E2E8F0' }
-                              ].map((entry, index) => (
-                                <Bar key={`cell-${index}`} dataKey="count" fill={entry.fill} />
-                              ))
-                            }
-                          </Bar>
-                        </RechartsBarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Bounces & Blocks Row */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Bounces */}
-                    <div className="high-tech-card p-4 border-white/5 bg-white/1">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Bounces</p>
-                      <h4 className="text-2xl font-bold text-white">
-                        {selectedEmailCampaign.bounces}{' '}
-                        <span className="text-xs font-medium text-indigo-400 block sm:inline">
-                          ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.bounces / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
-                        </span>
-                      </h4>
-                    </div>
-
-                    {/* Blocks */}
-                    <div className="high-tech-card p-4 border-white/5 bg-white/1">
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Blocks</p>
-                      <h4 className="text-2xl font-bold text-white">
-                        {selectedEmailCampaign.blocks}{' '}
-                        <span className="text-xs font-medium text-indigo-400 block sm:inline">
-                          ({selectedEmailCampaign.recipients > 0 ? ((selectedEmailCampaign.blocks / selectedEmailCampaign.recipients) * 100).toFixed(1) : '0'}%)
-                        </span>
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Polls (Standard static placeholder matching screenshot) */}
-                  <div className="high-tech-card p-4 border-white/5 bg-white/1">
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Polls</p>
-                    <h4 className="text-2xl font-bold text-slate-400">No Polls</h4>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
-          ) : (
-            <div className="high-tech-card p-12 text-center flex flex-col items-center justify-center border-indigo-500/10">
-              <Inbox className="w-12 h-12 text-slate-600 mb-4" />
-              <h3 className="text-lg font-bold text-white mb-2">No Campaign Data</h3>
-              <p className="text-sm text-slate-500">There are no seeded email campaign reports for this client.</p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Stats Grid for Social Platforms */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {currentData?.stats.map((stat: any, i: number) => (
-              <div key={i} className="high-tech-card p-6 group relative overflow-hidden">
-                <div className={cn(
-                  "absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-20 transition-opacity group-hover:opacity-40",
-                  selectedPlatform === 'instagram' ? "bg-pink-500" : 
-                  selectedPlatform === 'tiktok' ? "bg-cyan-500" : "bg-blue-500"
-                )}></div>
-
-                <div className="flex justify-between items-start mb-4 relative z-10">
-                  <div className={cn("p-2 rounded-lg bg-white/5 border border-white/10", stat.color)}>
-                    <stat.icon className="w-5 h-5" />
-                  </div>
-                  <div className={cn("flex items-center text-xs font-medium", stat.growth.startsWith('+') ? 'text-emerald-400' : 'text-red-400')}>
-                    {stat.growth}
-                    {stat.growth.startsWith('+') ? <ArrowUpRight className="w-3 h-3 ml-1" /> : <ArrowDownRight className="w-3 h-3 ml-1" />}
-                  </div>
-                </div>
-                <div className="space-y-1 relative z-10">
-                  <p className="text-sm text-slate-400 font-medium uppercase tracking-wider">{stat.label}</p>
-                  <h3 className="text-2xl font-bold text-white transition-colors">{stat.value}</h3>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Charts area for Social Platforms */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="high-tech-card p-4 md:p-6 h-[350px] md:h-[400px] flex flex-col">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                <div className={cn(
-                  "w-1 h-4 rounded-full",
-                  selectedPlatform === 'instagram' ? "bg-pink-500" : 
-                  selectedPlatform === 'tiktok' ? "bg-cyan-500" : "bg-blue-500"
-                )}></div>
-                Performance Trend
-              </h3>
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={currentData?.chart}>
-                    <defs>
-                      <linearGradient id="colorPlatform" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={currentData?.color} stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor={currentData?.color} stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: currentData?.color }}
-                    />
-                    <Area type="monotone" dataKey="engagement" stroke={currentData?.color} fillOpacity={1} fill="url(#colorPlatform)" strokeWidth={3} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="high-tech-card p-4 md:p-6 h-[350px] md:h-[400px] flex flex-col">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                 <div className={cn(
-                  "w-1 h-4 rounded-full opacity-50",
-                  selectedPlatform === 'instagram' ? "bg-pink-500" : 
-                  selectedPlatform === 'tiktok' ? "bg-cyan-500" : "bg-blue-500"
-                )}></div>
-                Reach Distribution
-              </h3>
-              <div className="flex-1">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsBarChart data={currentData?.chart}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => value >= 1000 ? `${value/1000}k` : value} />
-                    <Tooltip 
-                      cursor={{ fill: '#ffffff05' }}
-                      contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #ffffff20', borderRadius: '8px', color: '#fff' }}
-                      itemStyle={{ color: currentData?.color }}
-                    />
-                    <Bar dataKey="reach" fill={currentData?.color} radius={[4, 4, 0, 0]} barSize={24} />
-                  </RechartsBarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          {/* Social Platform Insights */}
-          <div className="high-tech-card p-6 bg-linear-to-r from-white/5 to-transparent border-white/5">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className={cn(
-                "w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border",
-                selectedPlatform === 'instagram' ? "bg-pink-500/10 border-pink-500/20 text-pink-400" : 
-                selectedPlatform === 'tiktok' ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400" : "bg-blue-500/10 border-blue-500/20 text-blue-400"
-              )}>
-                {selectedPlatform === 'instagram' && <Camera className="w-8 h-8" />}
-                {selectedPlatform === 'tiktok' && <Video className="w-8 h-8" />}
-                {selectedPlatform === 'linkedin' && <Briefcase className="w-8 h-8" />}
-              </div>
-              <div className="flex-1 text-center md:text-left">
-                <h4 className="text-lg font-bold text-white">Platform Insight</h4>
-                <p className="text-sm text-slate-400 leading-relaxed max-w-2xl mt-1">
-                  {selectedPlatform === 'instagram' && "Engagement on Reels is up by 22%. Consider increasing the frequency of short-form video content to maintain momentum."}
-                  {selectedPlatform === 'tiktok' && "Completion rates for educational content are peaking. The 'TechNova Tips' series is driving the majority of new followers."}
-                  {selectedPlatform === 'linkedin' && "Thought leadership articles are seeing higher repost rates. Focus on B2B networking and professional industry insights."}
-                </p>
-              </div>
-              <button className="w-full md:w-auto px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-sm font-bold text-white transition-all cursor-pointer">
-                VIEW FULL AUDIT
-              </button>
-            </div>
-          </div>
-        </>
       )}
     </div>
   );
