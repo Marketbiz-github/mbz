@@ -17,7 +17,8 @@ import {
   Key,
   ShieldAlert,
   Clipboard,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -85,12 +86,13 @@ export default function SEODetailPage() {
   const [systemEmail, setSystemEmail] = useState<string>('');
   
   const [loadingProject, setLoadingProject] = useState(true);
-  const [loadingGA, setLoadingGA] = useState(false);
+  const [loadingGA, setLoadingGA] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Connection Preview Toggle state
   const [showDemoPreview, setShowDemoPreview] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchProject() {
@@ -199,7 +201,7 @@ export default function SEODetailPage() {
     return `${mins}m ${secs}s`;
   };
 
-  if (loadingProject) {
+  if (loadingProject || (loadingGA && !gaData)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
@@ -332,62 +334,169 @@ export default function SEODetailPage() {
 
             {/* Structured Step-by-Step Instructions */}
             <div className="high-tech-card p-6 space-y-6">
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider">Panduan Pengaturan Langkah-demi-Langkah</h4>
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider">Panduan Pengaturan Google Analytics 4</h4>
               
               <div className="space-y-6 text-xs leading-relaxed text-slate-300">
                 <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0">1</div>
-                  <div className="space-y-1.5">
-                    <p className="font-bold text-white">Buat Google Cloud Service Account</p>
-                    <p className="text-slate-400">
-                      Buka <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a>, aktifkan **Google Analytics Data API v1**, buat sebuah **Service Account**, lalu unduh kredensialnya sebagai file private key berformat JSON.
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">1</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Buat Google Cloud Project & Service Account</p>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-400">
+                      <li>Buka <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
+                      <li>Buat Project baru (atau gunakan Project yang sudah ada).</li>
+                      <li>Buka <strong>APIs & Services &gt; Library</strong>.</li>
+                      <li>Cari <strong>Google Analytics Data API</strong> lalu klik <strong>Enable</strong>.</li>
+                      <li>Masuk ke <strong>IAM & Admin &gt; Service Accounts</strong>.</li>
+                      <li>Klik <strong>Create Service Account</strong>.</li>
+                      <li>Pada langkah Permissions, tidak perlu memilih Role, langsung klik <strong>Continue</strong>.</li>
+                      <li>Setelah Service Account dibuat, buka tab <strong>Keys</strong>.</li>
+                      <li>Klik <strong>Add Key &gt; Create New Key &gt; JSON</strong>.</li>
+                      <li>Simpan file JSON yang diunduh.</li>
+                    </ul>
+                    <p className="text-[10px] text-slate-500 italic mt-1">
+                      * Catatan: Satu Service Account dapat digunakan untuk mengakses banyak Properti Google Analytics (GA4). Anda tidak perlu membuat Service Account baru untuk setiap proyek.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0">2</div>
-                  <div className="space-y-1.5">
-                    <p className="font-bold text-white">Konfigurasikan Pengaturan Sistem di MarketBiz</p>
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">2</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Konfigurasikan Integrasi Google Analytics di MarketBiz</p>
                     <p className="text-slate-400">
-                      Buka halaman <Link href="/settings" className="text-cyan-400 underline">Pengaturan Sistem</Link>. Tempelkan **Email Service Account** dan **Private Key JSON** ke dalam kolom Integrasi GA4.
+                      Buka halaman <Link href="/settings" className="text-cyan-400 underline">Pengaturan Sistem &gt; Integrasi Google Analytics 4</Link>. Isi data berikut dari file JSON yang diunduh:
+                    </p>
+                    <div className="overflow-x-auto my-2 border border-white/5 rounded-lg bg-black/40">
+                      <table className="w-full text-left text-[11px]">
+                        <thead>
+                          <tr className="border-b border-white/10 bg-white/5 text-slate-300">
+                            <th className="p-2 font-bold">Field MarketBiz</th>
+                            <th className="p-2 font-bold">Ambil dari File JSON</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-white/5">
+                            <td className="p-2 font-semibold text-white">Email Google Service Account</td>
+                            <td className="p-2 font-mono text-cyan-400">client_email</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2 font-semibold text-white">Private Key Google (PEM)</td>
+                            <td className="p-2 font-mono text-cyan-400">private_key</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[10px] text-slate-500 italic">
+                      * Catatan: Kredensial ini cukup dikonfigurasi satu kali untuk seluruh sistem dan dapat digunakan oleh semua proyek.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0">3</div>
-                  <div className="space-y-1.5">
-                    <p className="font-bold text-white">Tambahkan Service Account sebagai Viewer Properti GA4</p>
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">3</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Berikan Akses Service Account ke Properti GA4</p>
                     <p className="text-slate-400">
-                      Masuk ke properti Google Analytics milik klien Anda di <a href="https://analytics.google.com/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline inline-flex items-center gap-0.5">Google Analytics Dashboard <ExternalLink className="w-2.5 h-2.5" /></a>. Masuk ke **Admin &gt; Setelan Properti &gt; Manajemen Akses Properti**. Tambahkan email Service Account berikut sebagai **Viewer**.
+                      Masuk ke Google Analytics milik website yang ingin diintegrasikan. Buka: <strong>Admin &gt; Property Access Management &gt; Add Users</strong>.
                     </p>
-                    {systemEmail ? (
-                      <div className="mt-2 p-2 bg-slate-900/60 rounded-lg border border-white/5 flex justify-between items-center max-w-md">
-                        <span className="font-mono text-[10px] text-slate-300 break-all select-all">{systemEmail}</span>
-                        <button 
-                          onClick={handleCopyEmail}
-                          className="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold px-2.5 py-1 rounded border border-white/10 shrink-0 flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Clipboard className="w-3 h-3" />}
-                          {copied ? "Tersalin" : "Salin"}
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-amber-500 italic mt-1">*Silakan konfigurasikan email Service Account di pengaturan terlebih dahulu untuk menyalin.</p>
-                    )}
+                    <p className="text-slate-400">
+                      Tambahkan email Service Account berikut sebagai <strong>Viewer</strong>:
+                    </p>
+                    <div className="mt-2 p-2 bg-slate-900/60 rounded-lg border border-white/5 flex justify-between items-center max-w-md">
+                      <span className="font-mono text-[10px] text-slate-300 break-all select-all">
+                        {systemEmail || 'mbz-653@marketbiz-1686646660228.iam.gserviceaccount.com'}
+                      </span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(systemEmail || 'mbz-653@marketbiz-1686646660228.iam.gserviceaccount.com');
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold px-2.5 py-1 rounded border border-white/10 shrink-0 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Clipboard className="w-3 h-3" />}
+                        {copied ? "Tersalin" : "Salin"}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 italic mt-1">
+                      * Penting: Langkah ini wajib dilakukan untuk setiap Properti GA4 yang ingin dihubungkan.
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0">4</div>
-                  <div className="space-y-1.5">
-                    <p className="font-bold text-white">Simpan ID Properti GA4 di Detail Proyek</p>
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">4</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Ambil ID Properti (Property ID) GA4</p>
                     <p className="text-slate-400">
-                      Di halaman <Link href="/seo" className="text-cyan-400 underline">Ringkasan SEO</Link>, pilih edit proyek ini. Tempelkan **ID Properti GA4** (dapat ditemukan di menu Admin Google Analytics &gt; Detail Properti, contoh: `415877840`).
+                      Masuk ke: <strong>Google Analytics &gt; Admin &gt; Property Settings</strong>. Salin nilai <strong>Property ID</strong> (contoh: <code>415877840</code>).
+                    </p>
+                    <p className="text-[10px] text-amber-400 font-semibold">
+                      ⚠️ Jangan menggunakan Measurement ID (G-XXXXXXXXXX). MarketBiz hanya menerima Property ID berupa angka.
                     </p>
                   </div>
                 </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">5</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Hubungkan Properti GA4 ke Proyek</p>
+                    <p className="text-slate-400">
+                      Buka <strong>MarketBiz &gt; SEO Report &gt; Edit Proyek</strong>, lalu masukkan Property ID yang telah disalin dan simpan perubahan.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">6</div>
+                  <div className="space-y-1.5 flex-1">
+                    <p className="font-bold text-white">Uji Koneksi</p>
+                    <p className="text-slate-400">
+                      Pastikan website sudah mengirim data ke Google Analytics. Buka halaman SEO Report proyek ini untuk melihat statistiknya secara real-time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Troubleshooting Guide */}
+            <div className="high-tech-card p-6 space-y-4 border-slate-500/10 bg-slate-950/20">
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-cyan-400" />
+                Troubleshooting & Solusi Error
+              </h4>
+              <div className="overflow-x-auto border border-white/5 rounded-xl bg-black/40">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/5 text-slate-200">
+                      <th className="p-3 font-bold">Pesan Error</th>
+                      <th className="p-3 font-bold">Penyebab</th>
+                      <th className="p-3 font-bold">Solusi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                      <td className="p-3 font-semibold text-rose-400 font-mono">User does not have sufficient permissions...</td>
+                      <td className="p-3 text-slate-400">Service Account belum memiliki akses ke Properti GA4.</td>
+                      <td className="p-3 text-slate-300">Tambahkan Service Account sebagai <strong>Viewer</strong> di Property Access Management.</td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                      <td className="p-3 font-semibold text-rose-400 font-mono">Property not found</td>
+                      <td className="p-3 text-slate-400">Property ID salah.</td>
+                      <td className="p-3 text-slate-300">Pastikan menggunakan Property ID (berupa angka), bukan Measurement ID (G-XXXXXXXXXX).</td>
+                    </tr>
+                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                      <td className="p-3 font-semibold text-rose-400 font-mono">Invalid credentials</td>
+                      <td className="p-3 text-slate-400">Email Service Account atau Private Key tidak valid.</td>
+                      <td className="p-3 text-slate-300">Periksa kembali <code>client_email</code> dan <code>private_key</code> dari file JSON.</td>
+                    </tr>
+                    <tr className="hover:bg-white/[0.01] transition-colors">
+                      <td className="p-3 font-semibold text-rose-400 font-mono">No data available / Empty Report</td>
+                      <td className="p-3 text-slate-400">Website belum mengirim data ke GA4.</td>
+                      <td className="p-3 text-slate-300">Pastikan tag GA4 sudah terpasang dan aktif mengirimkan event di website tersebut.</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -467,6 +576,21 @@ export default function SEODetailPage() {
                 </button>
               </div>
             )}
+
+            {/* Section 1: Real GA Data */}
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+                Data Riil Google Analytics 4 (SEO)
+              </div>
+              <button 
+                onClick={() => setIsHelpModalOpen(true)}
+                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Penjelasan Metrik
+              </button>
+            </div>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -576,7 +700,12 @@ export default function SEODetailPage() {
 
               {/* Keyword Performance Table */}
               <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col h-[400px]">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Top Organic Keywords</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Organic Keywords</h4>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
+                    Estimasi Sistem
+                  </span>
+                </div>
                 <div className="flex-1 overflow-y-auto min-h-0 pr-1">
                   <table className="w-full text-left text-xs">
                     <thead>
@@ -602,7 +731,12 @@ export default function SEODetailPage() {
 
             {/* Top Pages Section */}
             <div className="high-tech-card p-6 border-white/5 bg-slate-900/20">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Top Performing Pages</h4>
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Pages</h4>
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
+                  Estimasi Sistem
+                </span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs min-w-[500px]">
                   <thead>
@@ -626,6 +760,89 @@ export default function SEODetailPage() {
             </div>
           </div>
         ) : null
+      )}
+
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-cyan-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-cyan-400" />
+                Penjelasan Metrik Dashboard SEO
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">1. Active Users (Realtime)</p>
+                <p className="text-slate-400">Jumlah pengunjung unik yang sedang aktif membuka halaman website Anda saat ini (dalam jendela waktu 30 menit terakhir). Data ini diambil langsung dari Google Analytics secara real-time.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">2. Organic Sessions</p>
+                <p className="text-slate-400">Total sesi kunjungan yang diawali dari hasil pencarian organik/alami di search engine (seperti Google Search, Bing) dalam 30 hari terakhir. Jika nilainya 0 sedangkan Active Users ada, itu berarti kunjungan yang masuk saat ini berasal dari sumber non-organik (seperti mengetik langsung URL website, iklan berbayar, atau rujukan link sosial media).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">3. Page Views</p>
+                <p className="text-slate-400">Total akumulasi halaman di website Anda yang dibuka/dilihat oleh pengunjung organik selama 30 hari terakhir.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">4. Unique Users</p>
+                <p className="text-slate-400">Jumlah individu/pengunjung unik yang berkunjung ke website melalui pencarian organik dalam 30 hari terakhir (satu pengunjung yang membuka berkali-kali hanya dihitung satu kali).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">5. Bounce Rate (Rasio Pantulan)</p>
+                <p className="text-slate-400">Persentase pengunjung organik yang langsung meninggalkan website setelah hanya membuka satu halaman saja tanpa melakukan interaksi lebih lanjut (seperti mengklik tombol atau berpindah halaman). Rasio yang lebih rendah menunjukkan retensi/keterlibatan yang lebih baik.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">6. Session Duration</p>
+                <p className="text-slate-400">Rata-rata durasi waktu yang dihabiskan oleh pengunjung organik di website Anda dalam satu kali kunjungan.</p>
+              </div>
+
+              <div className="border-t border-white/5 pt-4 mt-2">
+                <p className="font-bold text-indigo-400">📊 Rumus Hasil Analisis & Estimasi Sistem</p>
+                <p className="text-slate-400 mt-1">Metrik dengan lencana <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">Estimasi Sistem</span> dihitung menggunakan formula proyeksi berikut dari data dasar Google Analytics:</p>
+                
+                <div className="space-y-3 mt-3 pl-2">
+                  <div>
+                    <p className="font-semibold text-slate-200">• Estimasi Klik Kata Kunci (Keyword Click Share)</p>
+                    <p className="text-slate-400">Dihitung berdasarkan proyeksi CTR (Click-Through Rate) standar industri terhadap posisi peringkat kata kunci Anda.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-200">• Estimasi Kunjungan Halaman (Top Performing Pages)</p>
+                    <p className="text-slate-400">Didistribusikan dari total Page Views riil GA4 dengan rasio kontribusi halaman bawaan:</p>
+                    <ul className="list-disc pl-4 mt-1 text-slate-400 space-y-0.5">
+                      <li>Halaman Utama (<code>/</code>): 50% dari total Page Views asli</li>
+                      <li>Halaman Layanan (<code>/services</code>): 30% dari total Page Views asli</li>
+                      <li>Halaman Tentang Kami (<code>/about</code>): 15% dari total Page Views asli</li>
+                      <li>Halaman Kontak (<code>/contact</code>): 5% dari total Page Views asli</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

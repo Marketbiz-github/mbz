@@ -17,7 +17,8 @@ import {
   Key,
   ShieldAlert,
   Clipboard,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -87,12 +88,13 @@ export default function SEODetailPage() {
   const [systemEmail, setSystemEmail] = useState<string>('');
   
   const [loadingProject, setLoadingProject] = useState(true);
-  const [loadingGA, setLoadingGA] = useState(false);
+  const [loadingGA, setLoadingGA] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Connection Preview Toggle state
   const [showDemoPreview, setShowDemoPreview] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchProject() {
@@ -212,7 +214,7 @@ export default function SEODetailPage() {
     return `${mins}m ${secs}s`;
   };
 
-  if (loadingProject) {
+  if (loadingProject || (loadingGA && !gaData)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <Loader2 className="w-10 h-10 text-cyan-500 animate-spin" />
@@ -358,6 +360,21 @@ export default function SEODetailPage() {
               </div>
             )}
 
+            {/* Section 1: Real GA Data */}
+            <div className="flex items-center justify-between border-b border-white/5 pb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+                Data Riil Google Analytics 4 (SEO)
+              </div>
+              <button 
+                onClick={() => setIsHelpModalOpen(true)}
+                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Penjelasan Metrik
+              </button>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
               
@@ -466,7 +483,12 @@ export default function SEODetailPage() {
 
               {/* Keyword Performance Table */}
               <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col h-[400px]">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Top Organic Keywords</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Organic Keywords</h4>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
+                    Estimasi Sistem
+                  </span>
+                </div>
                 <div className="flex-1 overflow-y-auto min-h-0 pr-1">
                   <table className="w-full text-left text-xs">
                     <thead>
@@ -492,7 +514,12 @@ export default function SEODetailPage() {
 
             {/* Top Pages Section */}
             <div className="high-tech-card p-6 border-white/5 bg-slate-900/20">
-              <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Top Performing Pages</h4>
+              <div className="flex items-center justify-between mb-6">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Pages</h4>
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
+                  Estimasi Sistem
+                </span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs min-w-[500px]">
                   <thead>
@@ -516,6 +543,89 @@ export default function SEODetailPage() {
             </div>
           </div>
         ) : null
+      )}
+
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-cyan-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-cyan-400" />
+                Penjelasan Metrik Dashboard SEO
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">1. Active Users (Realtime)</p>
+                <p className="text-slate-400">Jumlah pengunjung unik yang sedang aktif membuka halaman website Anda saat ini (dalam jendela waktu 30 menit terakhir). Data ini diambil langsung dari Google Analytics secara real-time.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">2. Organic Sessions</p>
+                <p className="text-slate-400">Total sesi kunjungan yang diawali dari hasil pencarian organik/alami di search engine (seperti Google Search, Bing) dalam 30 hari terakhir. Jika nilainya 0 sedangkan Active Users ada, itu berarti kunjungan yang masuk saat ini berasal dari sumber non-organik (seperti mengetik langsung URL website, iklan berbayar, atau rujukan link sosial media).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">3. Page Views</p>
+                <p className="text-slate-400">Total akumulasi halaman di website Anda yang dibuka/dilihat oleh pengunjung organik selama 30 hari terakhir.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">4. Unique Users</p>
+                <p className="text-slate-400">Jumlah individu/pengunjung unik yang berkunjung ke website melalui pencarian organik dalam 30 hari terakhir (satu pengunjung yang membuka berkali-kali hanya dihitung satu kali).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">5. Bounce Rate (Rasio Pantulan)</p>
+                <p className="text-slate-400">Persentase pengunjung organik yang langsung meninggalkan website setelah hanya membuka satu halaman saja tanpa melakukan interaksi lebih lanjut (seperti mengklik tombol atau berpindah halaman). Rasio yang lebih rendah menunjukkan retensi/keterlibatan yang lebih baik.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">6. Session Duration</p>
+                <p className="text-slate-400">Rata-rata durasi waktu yang dihabiskan oleh pengunjung organik di website Anda dalam satu kali kunjungan.</p>
+              </div>
+
+              <div className="border-t border-white/5 pt-4 mt-2">
+                <p className="font-bold text-indigo-400">📊 Rumus Hasil Analisis & Estimasi Sistem</p>
+                <p className="text-slate-400 mt-1">Metrik dengan lencana <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">Estimasi Sistem</span> dihitung menggunakan formula proyeksi berikut dari data dasar Google Analytics:</p>
+                
+                <div className="space-y-3 mt-3 pl-2">
+                  <div>
+                    <p className="font-semibold text-slate-200">• Estimasi Klik Kata Kunci (Keyword Click Share)</p>
+                    <p className="text-slate-400">Dihitung berdasarkan proyeksi CTR (Click-Through Rate) standar industri terhadap posisi peringkat kata kunci Anda.</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-200">• Estimasi Kunjungan Halaman (Top Performing Pages)</p>
+                    <p className="text-slate-400">Didistribusikan dari total Page Views riil GA4 dengan rasio kontribusi halaman bawaan:</p>
+                    <ul className="list-disc pl-4 mt-1 text-slate-400 space-y-0.5">
+                      <li>Halaman Utama (<code>/</code>): 50% dari total Page Views asli</li>
+                      <li>Halaman Layanan (<code>/services</code>): 30% dari total Page Views asli</li>
+                      <li>Halaman Tentang Kami (<code>/about</code>): 15% dari total Page Views asli</li>
+                      <li>Halaman Kontak (<code>/contact</code>): 5% dari total Page Views asli</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
