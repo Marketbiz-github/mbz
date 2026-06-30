@@ -16,7 +16,8 @@ import {
   User,
   Edit2,
   MessageCircle,
-  Code
+  Code,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -45,6 +46,7 @@ export default function ClientManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   useEffect(() => {
     document.title = "Clients Management | MarketBiz";
@@ -247,6 +249,21 @@ export default function ClientManagementPage() {
         >
           <Plus className="w-5 h-5" />
           ADD NEW CLIENT
+        </button>
+      </div>
+
+      {/* Section 1: Client Metrics */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+          Metrik Client & Workload
+        </div>
+        <button 
+          onClick={() => setIsHelpModalOpen(true)}
+          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          Penjelasan Metrik
         </button>
       </div>
 
@@ -677,6 +694,61 @@ export default function ClientManagementPage() {
                 </button>
               </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-cyan-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-cyan-400" />
+                Penjelasan Metrik Client Management
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">1. Active Clients</p>
+                <p className="text-slate-400">Jumlah klien yang saat ini memiliki minimal satu proyek berjalan (Ongoing) dengan status aktif.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">2. Total Clients</p>
+                <p className="text-slate-400">Jumlah seluruh data klien yang terdaftar di database agensi (termasuk yang aktif, nonaktif, maupun ditangguhkan).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">3. Total Services</p>
+                <p className="text-slate-400">Akumulasi total jenis layanan yang sedang disewa/aktif digunakan oleh seluruh klien yang terdaftar.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">4. Total Projects</p>
+                <p className="text-slate-400">Akumulasi total seluruh proyek kerja (baik yang sedang berjalan maupun telah selesai) yang sedang dikelola agensi.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">5. Project Done % (Rasio Penyelesaian)</p>
+                <p className="text-slate-400">Persentase rasio proyek yang telah sukses diselesaikan (Completed) dibandingkan dengan total seluruh proyek yang terdaftar.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
             </div>
           </div>
         </div>

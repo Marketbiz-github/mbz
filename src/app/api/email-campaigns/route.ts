@@ -50,6 +50,29 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    // Fetch global aggregates for the filtered client scope
+    let aggQuery = supabase
+      .from('email_blast_reports')
+      .select('recipients, opens, clicks, bounces, projects!inner(client_id)');
+    if (clientId) {
+      aggQuery = aggQuery.eq('projects.client_id', clientId);
+    }
+    const { data: aggData } = await aggQuery;
+
+    let totalSent = 0;
+    let totalOpens = 0;
+    let totalClicks = 0;
+    let totalBounces = 0;
+
+    if (aggData) {
+      aggData.forEach((c: any) => {
+        totalSent += c.recipients || 0;
+        totalOpens += c.opens || 0;
+        totalClicks += c.clicks || 0;
+        totalBounces += c.bounces || 0;
+      });
+    }
+
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -73,6 +96,12 @@ export async function GET(request: NextRequest) {
         message: 'Campaigns retrieved successfully',
         data: {
           campaigns: formattedCampaigns,
+          aggregates: {
+            totalSent,
+            totalOpens,
+            totalClicks,
+            totalBounces
+          },
           pagination: {
             page,
             limit,

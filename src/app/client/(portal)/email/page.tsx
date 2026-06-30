@@ -8,7 +8,9 @@ import {
   Eye,
   MousePointer2,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -38,6 +40,13 @@ export default function ClientEmailPage() {
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [globalStats, setGlobalStats] = useState({
+    totalSent: 0,
+    totalOpens: 0,
+    totalClicks: 0,
+    totalBounces: 0
+  });
 
   // Pagination & Search States
   const [page, setPage] = useState(1);
@@ -83,6 +92,9 @@ export default function ClientEmailPage() {
           setCampaigns(result.data.campaigns || []);
           setTotalPages(result.data.pagination.totalPages || 1);
           setTotalCount(result.data.pagination.total || 0);
+          if (result.data.aggregates) {
+            setGlobalStats(result.data.aggregates);
+          }
         }
       } catch (err: unknown) {
         if (!cancelled) {
@@ -104,10 +116,10 @@ export default function ClientEmailPage() {
     }
   };
 
-  const totalRecipients = campaigns.reduce((acc, c) => acc + (c.recipients || 0), 0);
-  const avgOpenRate = campaigns.length > 0 
-    ? (campaigns.reduce((acc, c) => acc + ((c.opens / (c.recipients || 1)) * 100), 0) / campaigns.length).toFixed(1) 
-    : '0.0';
+  const totalSent = globalStats.totalSent;
+  const avgOpenRate = totalSent > 0 ? ((globalStats.totalOpens / totalSent) * 100).toFixed(1) : '0.0';
+  const avgClickRate = totalSent > 0 ? ((globalStats.totalClicks / totalSent) * 100).toFixed(1) : '0.0';
+  const avgBounceRate = totalSent > 0 ? ((globalStats.totalBounces / totalSent) * 100).toFixed(1) : '0.0';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -120,23 +132,66 @@ export default function ClientEmailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <div className="high-tech-card p-6 border-indigo-500/20 bg-linear-to-br from-indigo-500/5 to-transparent">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Campaigns</p>
-          <h3 className="text-3xl font-extrabold text-white mt-3 font-mono">{totalCount}</h3>
-          <p className="text-[10px] text-slate-500 mt-1">Total emails sent</p>
+      {/* Section 1: Real-time Global Email Metrics */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+          Data Riil Email Blast (Global)
+        </div>
+        <button 
+          onClick={() => setIsHelpModalOpen(true)}
+          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          Penjelasan Metrik
+        </button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+        {/* Total Campaigns */}
+        <div className="high-tech-card p-5 border-indigo-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Campaigns</span>
+          </div>
+          <h3 className="text-3xl font-extrabold text-white font-mono">{totalCount}</h3>
+          <p className="text-[10px] text-slate-500 mt-1">All campaign reports</p>
         </div>
 
-        <div className="high-tech-card p-6 border-cyan-500/20 bg-linear-to-br from-cyan-500/5 to-transparent">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Open Rate</p>
-          <h3 className="text-3xl font-extrabold text-cyan-400 mt-3 font-mono">{avgOpenRate}%</h3>
+        {/* Avg Open Rate */}
+        <div className="high-tech-card p-5 border-cyan-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Open Rate</span>
+          </div>
+          <h3 className="text-3xl font-extrabold text-cyan-400 font-mono">{avgOpenRate}%</h3>
           <p className="text-[10px] text-slate-500 mt-1">Across all campaigns</p>
         </div>
 
-        <div className="high-tech-card p-6 border-emerald-500/20 bg-linear-to-br from-emerald-500/5 to-transparent">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Recipients</p>
-          <h3 className="text-3xl font-extrabold text-emerald-400 mt-3 font-mono">{totalRecipients.toLocaleString()}</h3>
+        {/* Avg Click Rate */}
+        <div className="high-tech-card p-5 border-emerald-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Click Rate</span>
+          </div>
+          <h3 className="text-3xl font-extrabold text-emerald-400 font-mono">{avgClickRate}%</h3>
+          <p className="text-[10px] text-slate-500 mt-1">Across all campaigns</p>
+        </div>
+
+        {/* Total Recipients (Sent) */}
+        <div className="high-tech-card p-5 border-purple-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Sent</span>
+          </div>
+          <h3 className="text-3xl font-extrabold text-purple-400 font-mono">{totalSent.toLocaleString()}</h3>
           <p className="text-[10px] text-slate-500 mt-1">Audience reached</p>
+        </div>
+
+        {/* Avg Bounce Rate */}
+        <div className="high-tech-card p-5 border-amber-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Bounce Rate</span>
+          </div>
+          <h3 className="text-3xl font-extrabold text-amber-400 font-mono">{avgBounceRate}%</h3>
+          <p className="text-[10px] text-slate-500 mt-1">Average bounce index</p>
         </div>
       </div>
 
@@ -263,6 +318,61 @@ export default function ClientEmailPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-indigo-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-indigo-400" />
+                Penjelasan Metrik Email Blast
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">1. Total Campaigns</p>
+                <p className="text-slate-400">Jumlah total seluruh kampanye/blast email yang telah dikirimkan untuk Anda.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">2. Avg Open Rate (Rasio Buka)</p>
+                <p className="text-slate-400">Persentase rata-rata email yang dibuka oleh penerima dari seluruh kampanye yang dikirimkan.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">3. Avg Click Rate (Rasio Klik)</p>
+                <p className="text-slate-400">Persentase rata-rata penerima yang mengklik tautan/link di dalam email dari total email yang berhasil terkirim.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">4. Total Sent</p>
+                <p className="text-slate-400">Akumulasi jumlah total penerima/email yang dikirimkan di seluruh kampanye.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">5. Avg Bounce Rate (Rasio Pantulan)</p>
+                <p className="text-slate-400">Persentase rata-rata email yang memantul/gagal dikirimkan (karena alamat email tidak valid, tidak aktif, atau inbox penuh) dari total email terkirim.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

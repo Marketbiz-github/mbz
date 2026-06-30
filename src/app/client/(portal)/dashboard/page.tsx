@@ -12,7 +12,7 @@ import {
   Download,
   Calendar,
   X,
-  PieChart
+  HelpCircle
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -54,6 +54,7 @@ export default function ClientDashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<string>('All');
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,12 +97,10 @@ export default function ClientDashboard() {
             id,
             name,
             status,
+            progress,
             updated_at,
             services (
               name
-            ),
-            webdev_reports (
-              progress_percentage
             )
           `)
           .eq('client_id', cData.id);
@@ -140,11 +139,9 @@ export default function ClientDashboard() {
             const isActive = activeServicesList.includes(serviceName);
             
             // Determine progress
-            let progress = 65;
+            let progress = proj.progress || 0;
             if (proj.status === 'completed') {
               progress = 100;
-            } else if (serviceName === 'Web Development') {
-              progress = proj.webdev_reports?.[0]?.progress_percentage || 0;
             }
 
             const dateStr = new Date(proj.updated_at).toLocaleDateString('id-ID', {
@@ -333,9 +330,18 @@ export default function ClientDashboard() {
         <div className="lg:col-span-2 space-y-6">
           <div className="high-tech-card p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-cyan-400" /> {selectedService === 'All' ? 'Total Active Projects' : `${selectedService} Projects`}
-              </h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-cyan-400" /> {selectedService === 'All' ? 'Total Active Projects' : `${selectedService} Projects`}
+                </h3>
+                <button 
+                  onClick={() => setIsHelpModalOpen(true)}
+                  className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors text-[10px] font-bold cursor-pointer"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" />
+                  Info Metrik
+                </button>
+              </div>
               <p className="text-3xl font-bold text-white mt-2">{filteredProjects.length}</p>
             </div>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -442,6 +448,61 @@ export default function ClientDashboard() {
           </div>
         </div>
       </div>
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-cyan-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-cyan-400" />
+                Panduan Dashboard Client Portal
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">1. Account Status</p>
+                <p className="text-slate-400">Status akun portal Anda. Status *Ongoing* menunjukkan layanan agensi aktif berjalan untuk situs Anda.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">2. Active Services (Layanan Aktif)</p>
+                <p className="text-slate-400">Daftar modul layanan dari MarketBiz yang sedang berjalan aktif untuk bisnis Anda. Klik pada jenis layanan untuk memfilter proyek.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">3. Completed Services (Arsip Layanan)</p>
+                <p className="text-slate-400">Rekam jejak layanan yang sebelumnya pernah diselesaikan/dinonaktifkan oleh tim MarketBiz.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">4. Projects Progress</p>
+                <p className="text-slate-400">Tingkat persentase progres pengerjaan proyek dari tim operasional kami. Klik baris proyek untuk masuk ke modul detail layanan terkait.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-cyan-400">5. PDF/Excel Report Download</p>
+                <p className="text-slate-400">Mengekspor ringkasan progres dan status proyek kerja Anda ke format file PDF atau spreadsheet Excel.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
