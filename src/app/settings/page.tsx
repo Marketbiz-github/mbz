@@ -102,7 +102,11 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSettings)
       });
-      if (!res.ok) throw new Error('Gagal menyimpan pengaturan');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || 'Gagal menyimpan pengaturan');
+        return;
+      }
       const data = await res.json();
       setSettings(data);
       setSaveSuccess(true);

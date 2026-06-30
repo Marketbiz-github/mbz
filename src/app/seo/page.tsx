@@ -265,6 +265,22 @@ export default function SEOOverviewPage() {
 
     setSaving(true);
     try {
+      // Validate GA Property ID
+      const valRes = await fetch(`/api/seo/validate-property?property_id=${encodeURIComponent(newProjGaId)}`);
+      const valData = await valRes.json();
+      if (!valData.valid) {
+        alert(valData.error || 'Property ID Google Analytics tidak valid atau tidak bisa diakses.');
+        setSaving(false);
+        return;
+      }
+      if (valData.warning) {
+        const confirmSave = window.confirm(valData.warning + '\n\nTetap simpan proyek?');
+        if (!confirmSave) {
+          setSaving(false);
+          return;
+        }
+      }
+
       const { error: insertErr } = await supabase
         .from('projects')
         .insert({
@@ -314,6 +330,22 @@ export default function SEOOverviewPage() {
     }
     setSaving(true);
     try {
+      // Validate GA Property ID
+      const valRes = await fetch(`/api/seo/validate-property?property_id=${encodeURIComponent(editGaId)}`);
+      const valData = await valRes.json();
+      if (!valData.valid) {
+        alert(valData.error || 'Property ID Google Analytics tidak valid atau tidak bisa diakses.');
+        setSaving(false);
+        return;
+      }
+      if (valData.warning) {
+        const confirmSave = window.confirm(valData.warning + '\n\nTetap simpan proyek?');
+        if (!confirmSave) {
+          setSaving(false);
+          return;
+        }
+      }
+
       const { error: updateErr } = await supabase
         .from('projects')
         .update({

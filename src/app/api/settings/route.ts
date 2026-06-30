@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getGoogleAccessToken } from '@/lib/google-auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -69,8 +70,25 @@ export async function POST(request: NextRequest) {
     if (profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
     const body = await request.json();
+
+    // Validate Google Analytics credentials if provided
+    if (body.google_service_account_email || body.google_private_key) {
+      if (!body.google_service_account_email || !body.google_private_key) {
+        return NextResponse.json(
+          { error: 'Email Service Account dan Private Key harus diisi keduanya.' },
+          { status: 400 }
+        );
+      }
+      try {
+        await getGoogleAccessToken(body.google_service_account_email, body.google_private_key);
+      } catch (err: any) {
+        return NextResponse.json(
+          { error: `Validasi Kredensial Google gagal: ${err.message}` },
+          { status: 400 }
+        );
+      }
+    }
 
     // We seed with a single constant ID
     const settingsId = '00000000-0000-0000-0000-000000000001';
