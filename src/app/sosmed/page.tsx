@@ -240,7 +240,7 @@ export default function SosmedOverviewPage() {
     }
   };
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     setError(null);
     try {

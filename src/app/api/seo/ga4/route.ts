@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getGoogleAccessToken } from '@/lib/google-auth';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,8 +31,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Load GA credentials from system settings
-    const { data: settings } = await supabase
+    // Load GA credentials from system settings using admin client to bypass RLS
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: settings } = await supabaseAdmin
       .from('system_settings')
       .select('google_service_account_email, google_private_key')
       .single();
