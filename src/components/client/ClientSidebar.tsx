@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -10,19 +10,69 @@ import {
   LogOut,
   ChevronRight,
   User,
-  HelpCircle
+  HelpCircle,
+  Search,
+  MessageCircle,
+  Camera,
+  Globe
 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Performance Overview', href: '/client/dashboard' },
-  { icon: FileText, label: 'Service Reports', href: '/client/reports' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/client/dashboard' },
 ];
 
 export default function ClientSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const { signOut, user, role } = useAuth();
+  const supabase = createClient();
+  const [dynamicMenus, setDynamicMenus] = useState<{ icon: any; label: string; href: string }[]>([]);
+
+  useEffect(() => {
+    async function fetchServices() {
+      if (!user) return;
+      
+      const { data: cData } = await supabase
+        .from('clients')
+        .select(`
+          id,
+          client_services (
+            services (
+              name
+            )
+          )
+        `)
+        .eq('owner_id', user.id)
+        .single();
+        
+      if (cData && cData.client_services) {
+        const rawServices = cData.client_services as any[];
+        const servicesList = rawServices.map((cs: any) => cs.services?.name).filter(Boolean);
+        
+        const newMenus = [];
+        if (servicesList.includes('SEO')) {
+          newMenus.push({ icon: Search, label: 'SEO', href: '/client/seo' });
+        }
+        if (servicesList.includes('Sosmed')) {
+          newMenus.push({ icon: Camera, label: 'Sosmed', href: '/client/sosmed' });
+        }
+        if (servicesList.includes('Email Blast')) {
+          newMenus.push({ icon: FileText, label: 'Email Blast', href: '/client/email' });
+        }
+        if (servicesList.includes('WA Blast')) {
+          newMenus.push({ icon: MessageCircle, label: 'WA Blast', href: '/client/wa-blast' });
+        }
+        
+        setDynamicMenus(newMenus);
+      }
+    }
+    
+    fetchServices();
+  }, [user, supabase]);
+
+  const allMenus = [...menuItems, ...dynamicMenus];
 
   return (
     <aside className="w-64 h-full border-r border-white/10 bg-slate-950 flex flex-col shadow-2xl">
@@ -37,7 +87,7 @@ export default function ClientSidebar({ onClose }: { onClose?: () => void }) {
 
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Main Menu</p>
-        {menuItems.map((item) => {
+        {allMenus.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link

@@ -19,7 +19,11 @@ export default function RootLayout({
     pathname?.startsWith('/client/dashboard') ||
     pathname?.startsWith('/client/reports') ||
     pathname?.startsWith('/client/notifications') ||
-    pathname?.startsWith('/client/help');
+    pathname?.startsWith('/client/help') ||
+    pathname?.startsWith('/client/seo') ||
+    pathname?.startsWith('/client/sosmed') ||
+    pathname?.startsWith('/client/email') ||
+    pathname?.startsWith('/client/wa-blast');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (

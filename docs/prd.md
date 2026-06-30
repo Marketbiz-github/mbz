@@ -532,32 +532,30 @@ profiles (user)
 
 ### 8.6 Client Portal (`/client/*`)
 
-**Layout:** Sidebar terpisah (Client Portal branding)
+**Layout:** Sidebar terpisah (Client Portal branding). Menu *sidebar* dibuat secara **dinamis** dan hanya memunculkan opsi menu layanan (seperti SEO, Email Blast, dll) apabila klien yang bersangkutan memang berlangganan layanan tersebut.
 
 | Halaman | Route | Deskripsi |
 |---------|-------|-----------|
-| Performance Overview | `/client/dashboard` | Overview semua service yang diambil |
-| Service Reports | `/client/reports` | Detail laporan per service & project |
-| Notifications | `/client/notifications` | Daftar notifikasi update terbaru |
-| Help & Support | `/client/help` | Informasi bantuan |
+| Performance Overview | `/client/dashboard` | Overview semua project dan service yang diambil beserta grafik rangkuman progress. Klien dapat mengklik project untuk langsung membuka detailnya. |
+| Service Reports | `/client/[service]/detail/[id]` | Detail laporan per service & project yang dimodifikasi menjadi **Read-Only** (Klien tidak bisa menambah/mengubah data, hanya bisa melihat dan mendownload PDF/Excel). Sistem keamanan (RLS / Auth checks) mencegah klien membuka data milik klien lain. |
+| Notifications | `/client/notifications` | Daftar notifikasi update terbaru. Lonceng notifikasi di *header* telah beroperasi secara **Real-time** langsung dari *database* (Supabase Realtime) dengan indikator titik merah untuk notifikasi yang belum dibaca. |
+| Help & Support | `/client/help` | Halaman bantuan khusus berisikan kontak Email dan WhatsApp tim konsultan dengan Call-to-Action (CTA) berbahasa Indonesia untuk custom request. |
 
-**Aturan akses:**
-- Client hanya bisa lihat service & project yang di-assign ke mereka
-- Semua data read-only
-- Bisa download dokumen/laporan (PDF & Excel)
+**Fitur Global Search:**
+- Kotak pencarian (Search metrics) di header navbar sudah terhubung ke database.
+- Pencarian dilakukan berdasarkan **nama project** dari client bersangkutan.
+- Mengklik hasil pencarian akan langsung merutekan (*redirect*) klien ke halaman detail (*Service Reports*) proyek tersebut secara instan.
 
 **Fitur Notifikasi:**
-- Bell icon di navbar client (dengan badge count unread)
-- Dropdown notifikasi terbaru (5 terakhir)
-- Halaman penuh `/client/notifications` untuk semua notifikasi
+- Bell icon di navbar client dengan badge count merah untuk notifikasi *unread*.
+- Dropdown notifikasi terbaru menampilkan daftar notifikasi yang ditarik *live* dari database.
+- Saat klien mengklik salah satu notifikasi di *dropdown*:
+  1. Notifikasi otomatis ditandai "Sudah Dibaca" (*mark as read*).
+  2. Klien di-*redirect* otomatis ke *link* tujuan dari notifikasi tersebut (misalnya detail proyek).
 - Jenis notifikasi:
   - 📊 **Report Update**: "Laporan Sosmed untuk project X telah diperbarui"
   - 📂 **New Project**: "Project baru 'Y' telah ditambahkan ke service Email Blast Anda"
   - ℹ️ **Info**: Pengumuman umum dari admin
-- Notifikasi di-generate otomatis oleh sistem saat:
-  - Admin menambah/update report data
-  - Admin membuat project baru untuk client
-  - Admin menambah service baru untuk client
 
 ---
 
