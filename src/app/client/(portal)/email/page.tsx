@@ -230,6 +230,7 @@ export default function ClientEmailPage() {
               <table className="w-full text-left min-w-[1000px]">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Campaign Name</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Recipients</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Opens</th>
@@ -241,13 +242,16 @@ export default function ClientEmailPage() {
                 <tbody className="divide-y divide-white/5">
                   {campaigns.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500 text-sm">
                         No email campaigns found.
                       </td>
                     </tr>
                   ) : (
-                    campaigns.map((camp) => (
+                    campaigns.map((camp, index) => {
+                      const rowNumber = (page - 1) * limit + index + 1;
+                      return (
                       <tr key={camp.id} className="hover:bg-white/2 transition-colors">
+                        <td className="px-6 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
                         <td className="px-6 py-4">
                           <p className="font-bold text-sm text-white mb-1">{camp.name}</p>
                           <p className="text-xs text-slate-500 font-mono">Sent: {new Date(camp.sent_at).toLocaleDateString()}</p>
@@ -289,7 +293,8 @@ export default function ClientEmailPage() {
                           </Link>
                         </td>
                       </tr>
-                    ))
+                    );
+                    })
                   )}
                 </tbody>
               </table>

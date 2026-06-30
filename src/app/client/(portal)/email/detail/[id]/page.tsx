@@ -14,7 +14,9 @@ import {
   Mail,
   Users,
   MessageCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -63,6 +65,7 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<EmailCampaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   useEffect(() => {
     if (campaign) {
@@ -187,7 +190,7 @@ export default function CampaignDetailPage() {
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       {/* Back link */}
       <button 
-        onClick={() => router.push('/email')}
+        onClick={() => router.push('/client/email')}
         className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-semibold group cursor-pointer print:hidden"
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -211,6 +214,13 @@ export default function CampaignDetailPage() {
 
         {/* Action Controls Bar */}
         <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-2 rounded-xl border border-white/5 backdrop-blur-xl print:hidden">
+          <button 
+            onClick={() => setIsHelpModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition-all cursor-pointer mr-2"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Penjelasan Metrik
+          </button>
           <button 
             onClick={handleDownloadPDF}
             className="flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white transition-all cursor-pointer"
@@ -341,6 +351,77 @@ export default function CampaignDetailPage() {
         </div>
 
       </div>
+
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-indigo-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-indigo-400" />
+                Penjelasan Metrik Detail
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">1. Recipients</p>
+                <p className="text-slate-400">Total penerima email yang dikirim pada kampanye ini.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">2. Replies</p>
+                <p className="text-slate-400">Jumlah penerima yang membalas email kampanye ini secara langsung.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">3. Open Rate</p>
+                <p className="text-slate-400">Tingkat pembukaan email (berapa persen dari penerima yang membuka email).</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">4. Unsubscribes</p>
+                <p className="text-slate-400">Jumlah pengguna yang berhenti berlangganan (unsubscribe) setelah menerima email ini.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">5. Click Rate</p>
+                <p className="text-slate-400">Persentase pengguna yang mengklik link yang ada di dalam badan email.</p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">6. Open Rate excluding Apple (MPP)</p>
+                <p className="text-slate-400">Tingkat pembukaan murni tanpa menyertakan metrik otomatis dari Apple Mail Privacy Protection.</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">7. Bounces</p>
+                <p className="text-slate-400">Jumlah email yang terpantul/gagal masuk (misalnya karena email salah/penuh).</p>
+              </div>
+              
+              <div className="space-y-1">
+                <p className="font-bold text-indigo-400">8. Blocks</p>
+                <p className="text-slate-400">Jumlah email yang diblokir oleh provider email penerima.</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
