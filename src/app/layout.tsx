@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Script from 'next/script';
 import Sidebar from '@/components/Sidebar';
 import { Menu, X } from 'lucide-react';
 import { AuthProvider } from '@/providers/AuthProvider';
@@ -15,7 +16,7 @@ export default function RootLayout({
   const pathname = usePathname();
   const isLoginPage = pathname === '/login' || pathname === '/';
   // `/client` is the admin page, `/client/*` is the client portal
-  const isClientPortal = 
+  const isClientPortal =
     pathname?.startsWith('/client/dashboard') ||
     pathname?.startsWith('/client/reports') ||
     pathname?.startsWith('/client/notifications') ||
@@ -28,6 +29,21 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        {/* Google tag (gtag.js) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-3KFPSQ5YMW"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-3KFPSQ5YMW');
+          `}
+        </Script>
+      </head>
       <body className="antialiased bg-black text-white">
         <AuthProvider>
           {isLoginPage || isClientPortal ? (
@@ -40,7 +56,7 @@ export default function RootLayout({
                   <div className="w-8 h-8 bg-cyan-500 rounded flex items-center justify-center font-bold text-black italic text-sm">M</div>
                   <span className="font-bold text-lg tracking-tight text-white">MARKETBIZ</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                   className="p-2 text-white hover:bg-white/10 rounded-lg transition-all"
                 >
@@ -50,7 +66,7 @@ export default function RootLayout({
 
               {/* Sidebar Overlay for Mobile */}
               {isSidebarOpen && (
-                <div 
+                <div
                   className="lg:hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-70"
                   onClick={() => setIsSidebarOpen(false)}
                 ></div>
@@ -69,7 +85,7 @@ export default function RootLayout({
                 {/* Background glow effects */}
                 <div className="fixed top-0 right-0 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-cyan-500/5 rounded-full blur-[80px] md:blur-[120px] -z-10"></div>
                 <div className="fixed bottom-0 left-0 lg:left-64 w-[250px] md:w-[400px] h-[250px] md:h-[400px] bg-purple-500/5 rounded-full blur-[70px] md:blur-[100px] -z-10"></div>
-                
+
                 <div className="max-w-7xl mx-auto">
                   {children}
                 </div>
