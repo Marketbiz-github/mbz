@@ -18,6 +18,8 @@ DECLARE
     proj_ipaymu_wa UUID := 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12';
     proj_ipaymu_seo UUID := 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13';
     proj_ipaymu_web UUID := 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14';
+    report_wa_1 UUID := 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+    report_wa_2 UUID := 'e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12';
 BEGIN
     -- Get Service IDs
     SELECT id INTO srv_sosmed FROM public.services WHERE name = 'Sosmed' LIMIT 1;
@@ -62,10 +64,24 @@ BEGIN
         (proj_ipaymu_email, 'Newsletter Q3', 'newsletter@ipaymu.com', 'completed', 55000, 15000, 4500, 200, 150, 30);
 
     -- WA Blast Reports
-    INSERT INTO public.wa_blast_reports (project_id, campaign_name, template_name, status, total_sent, delivered, read, replied, clicks, failed, source)
+    INSERT INTO public.wa_blast_reports (id, project_id, campaign_name, template_name, status, total_sent, delivered, read, replied, clicks, failed, source)
     VALUES 
-        (proj_ipaymu_wa, 'Follow Up Leads', 'promo_v1', 'completed', 10000, 9500, 8000, 1200, 800, 500, 'ga4_api'),
-        (proj_ipaymu_wa, 'Pengumuman Maintenance', 'info_v1', 'completed', 5000, 4900, 4500, 50, 0, 100, 'manual');
+        (report_wa_1, proj_ipaymu_wa, 'Follow Up Leads', 'promo_v1', 'completed', 5, 2, 2, 0, 0, 1, 'manual'),
+        (report_wa_2, proj_ipaymu_wa, 'Pengumuman Maintenance', 'info_v1', 'completed', 3, 1, 2, 0, 0, 0, 'manual')
+    ON CONFLICT (id) DO NOTHING;
+
+    -- WA Blast Recipients
+    INSERT INTO public.wa_blast_recipients (report_id, phone_number, name, status, sent_at)
+    VALUES
+        (report_wa_1, '081234567890', 'Budi Santoso', 'read', CURRENT_TIMESTAMP),
+        (report_wa_1, '081234567891', 'Siti Aminah', 'read', CURRENT_TIMESTAMP),
+        (report_wa_1, '081234567892', 'Agus Prayitno', 'delivered', CURRENT_TIMESTAMP),
+        (report_wa_1, '081234567893', 'Rina Wati', 'delivered', CURRENT_TIMESTAMP),
+        (report_wa_1, '081234567894', 'Joko Susilo', 'failed', CURRENT_TIMESTAMP),
+        
+        (report_wa_2, '089876543210', 'Andi Hermawan', 'read', CURRENT_TIMESTAMP),
+        (report_wa_2, '089876543211', 'Dewi Lestari', 'read', CURRENT_TIMESTAMP),
+        (report_wa_2, '089876543212', 'Hendra Gunawan', 'delivered', CURRENT_TIMESTAMP);
 
     -- SEO Reports
     INSERT INTO public.seo_reports (project_id, report_date, sessions, page_views, users, bounce_rate, organic_traffic, source)
