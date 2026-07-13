@@ -367,7 +367,7 @@ export default function WABlastOverviewPage() {
       </div>
 
       {/* Filter and search controls */}
-      <div className="high-tech-card p-4 flex flex-col md:flex-row items-center gap-4 bg-slate-900/40">
+      <div className="high-tech-card p-4 flex flex-col md:flex-row items-center gap-4 bg-slate-900/40 relative z-20">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
           <input

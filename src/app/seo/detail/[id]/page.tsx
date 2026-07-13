@@ -18,7 +18,11 @@ import {
   ShieldAlert,
   Clipboard,
   Check,
-  X
+  X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -45,8 +49,11 @@ interface Project {
 
 interface KeywordData {
   keyword: string;
+  url?: string;
   rank: number;
   clicks: number;
+  impressions?: number;
+  ctr?: string;
 }
 
 interface PageData {
@@ -70,10 +77,17 @@ interface GAData {
     bounceRate: number;
     avgSessionDuration: number;
     organicTraffic: number;
-    chart: Array<{ date: string; Sessions: number; Users: number }>;
-    keywords: KeywordData[];
-    topPages: PageData[];
+    chart: any[];
   };
+}
+
+interface GSCData {
+  isDemo: boolean;
+  apiError?: string;
+  credsMissing?: boolean;
+  propertyMissing?: boolean;
+  keywords: KeywordData[];
+  topPages: PageData[];
 }
 
 export default function SEODetailPage() {
@@ -83,16 +97,41 @@ export default function SEODetailPage() {
 
   const [project, setProject] = useState<Project | null>(null);
   const [gaData, setGaData] = useState<GAData | null>(null);
+  const [gscData, setGscData] = useState<GSCData | null>(null);
   const [systemEmail, setSystemEmail] = useState<string>('');
   
   const [loadingProject, setLoadingProject] = useState(true);
   const [loadingGA, setLoadingGA] = useState(true);
+  const [loadingGSC, setLoadingGSC] = useState(true);
+  const [activeTab, setActiveTab] = useState<'ga4' | 'gsc'>('ga4');
   const [error, setError] = useState<string | null>(null);
 
-  // Connection Preview Toggle state
-  const [showDemoPreview, setShowDemoPreview] = useState(false);
+  // GSC Sub-tab and Pagination states
+  const [gscSubTab, setGscSubTab] = useState<'keywords' | 'pages'>('keywords');
+  const [keywordSearch, setKeywordSearch] = useState('');
+  const [keywordPage, setKeywordPage] = useState(1);
+  const [pageSearch, setPageSearch] = useState('');
+  const [pagePage, setPagePage] = useState(1);
+  const rowsPerPage = 15;
+
+  // Derived GSC Data
+  const filteredKeywords = gscData?.keywords.filter(kw => 
+    kw.keyword.toLowerCase().includes(keywordSearch.toLowerCase()) || 
+    (kw.url && kw.url.toLowerCase().includes(keywordSearch.toLowerCase()))
+  ) || [];
+  const paginatedKeywords = filteredKeywords.slice((keywordPage - 1) * rowsPerPage, keywordPage * rowsPerPage);
+  const totalKeywordPages = Math.max(1, Math.ceil(filteredKeywords.length / rowsPerPage));
+
+  const filteredPages = gscData?.topPages.filter(p => 
+    p.path.toLowerCase().includes(pageSearch.toLowerCase())
+  ) || [];
+  const paginatedPages = filteredPages.slice((pagePage - 1) * rowsPerPage, pagePage * rowsPerPage);
+  const totalPagePages = Math.max(1, Math.ceil(filteredPages.length / rowsPerPage));
+
   const [copied, setCopied] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   useEffect(() => {
     async function fetchProject() {
@@ -140,7 +179,7 @@ export default function SEODetailPage() {
     const fetchGAData = async () => {
       setLoadingGA(true);
       try {
-        const res = await fetch(`/api/seo/ga4?project_id=${id}`);
+        const res = await fetch(`/api/seo/ga4?project_id=${id}&range=${dateRange}`);
         if (!res.ok) throw new Error('Failed to fetch GA4 analytics');
         const data = await res.json();
         setGaData(data);
@@ -152,10 +191,23 @@ export default function SEODetailPage() {
       }
     };
 
+    const fetchGSCData = async () => {
+      setLoadingGSC(true);
+      try {
+        const res = await fetch(`/api/seo/gsc?project_id=${id}&range=${dateRange}`);
+        if (!res.ok) throw new Error('Failed to fetch GSC analytics');
+        const data = await res.json();
+        setGscData(data);
+      } catch (err: any) {
+        console.error('Error fetching GSC data:', err);
+      } finally {
+        setLoadingGSC(false);
+      }
+    };
+
     fetchGAData();
-    const interval = setInterval(fetchGAData, 30000);
-    return () => clearInterval(interval);
-  }, [id, project, loadingProject]);
+    fetchGSCData();
+  }, [id, project, loadingProject, refreshKey, dateRange]);
 
   const handleDownloadPDF = () => {
     window.print();
@@ -283,8 +335,23 @@ export default function SEODetailPage() {
         </div>
 
         {/* Action Controls Bar */}
-        {(isGAConnected || showDemoPreview) && (
+        {gaData && (
           <div className="flex items-center gap-2 bg-slate-900/40 p-2 rounded-xl border border-white/5 backdrop-blur-xl print:hidden animate-in fade-in">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+            >
+              <option value="today">Hari Ini</option>
+              <option value="7daysAgo">7 Hari Terakhir</option>
+              <option value="30daysAgo">30 Hari Terakhir</option>
+            </select>
+            <button 
+              onClick={() => setRefreshKey(prev => prev + 1)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg text-xs font-bold text-white transition-all cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingGA || loadingGSC ? 'animate-spin' : ''}`} /> Refresh
+            </button>
             <button 
               onClick={handleDownloadPDF}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-bold text-white transition-all cursor-pointer"
@@ -301,288 +368,60 @@ export default function SEODetailPage() {
         )}
       </div>
 
-      {/* RENDER CONNECTION TUTORIAL IF NOT CONNECTED & NOT CLICKED PREVIEW */}
-      {!isGAConnected && !showDemoPreview ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-4 duration-300">
-          {/* Tutorial Guide Left Block */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="high-tech-card p-6 border-amber-500/10 bg-amber-500/[0.02]">
-              <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-amber-500" />
-                Koneksi API Google Analytics 4 Diperlukan
-              </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Proyek ini tidak menampilkan statistik real-time karena koneksi API Google Analytics belum terkonfigurasi dengan lengkap. 
-                Ikuti panduan di bawah ini untuk menghubungkan Properti GA4 situs klien ini.
-              </p>
-              
-              <div className="mt-6 flex items-center gap-4">
-                <button
-                  onClick={() => setShowDemoPreview(true)}
-                  className="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Play className="w-3 h-3 text-cyan-400" /> Lewati ke Pratinjau (Mode Demo)
-                </button>
-                <button
-                  onClick={() => router.push('/settings')}
-                  className="px-5 py-2.5 bg-linear-to-r from-purple-500 to-indigo-500 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg"
-                >
-                  <Key className="w-3 h-3" /> Buka Pengaturan API
-                </button>
-              </div>
-            </div>
-
-            {/* Structured Step-by-Step Instructions */}
-            <div className="high-tech-card p-6 space-y-6">
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider">Panduan Pengaturan Google Analytics 4</h4>
-              
-              <div className="space-y-6 text-xs leading-relaxed text-slate-300">
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">1</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Buat Google Cloud Project & Service Account</p>
-                    <ul className="list-disc pl-4 space-y-1 text-slate-400">
-                      <li>Buka <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline inline-flex items-center gap-0.5">Google Cloud Console <ExternalLink className="w-2.5 h-2.5" /></a>.</li>
-                      <li>Buat Project baru (atau gunakan Project yang sudah ada).</li>
-                      <li>Buka <strong>APIs & Services &gt; Library</strong>.</li>
-                      <li>Cari <strong>Google Analytics Data API</strong> lalu klik <strong>Enable</strong>.</li>
-                      <li>Masuk ke <strong>IAM & Admin &gt; Service Accounts</strong>.</li>
-                      <li>Klik <strong>Create Service Account</strong>.</li>
-                      <li>Pada langkah Permissions, tidak perlu memilih Role, langsung klik <strong>Continue</strong>.</li>
-                      <li>Setelah Service Account dibuat, buka tab <strong>Keys</strong>.</li>
-                      <li>Klik <strong>Add Key &gt; Create New Key &gt; JSON</strong>.</li>
-                      <li>Simpan file JSON yang diunduh.</li>
-                    </ul>
-                    <p className="text-[10px] text-slate-500 italic mt-1">
-                      * Catatan: Satu Service Account dapat digunakan untuk mengakses banyak Properti Google Analytics (GA4). Anda tidak perlu membuat Service Account baru untuk setiap proyek.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">2</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Konfigurasikan Integrasi Google Analytics di MarketBiz</p>
-                    <p className="text-slate-400">
-                      Buka halaman <Link href="/settings" className="text-cyan-400 underline">Pengaturan Sistem &gt; Integrasi Google Analytics 4</Link>. Isi data berikut dari file JSON yang diunduh:
-                    </p>
-                    <div className="overflow-x-auto my-2 border border-white/5 rounded-lg bg-black/40">
-                      <table className="w-full text-left text-[11px]">
-                        <thead>
-                          <tr className="border-b border-white/10 bg-white/5 text-slate-300">
-                            <th className="p-2 font-bold">Field MarketBiz</th>
-                            <th className="p-2 font-bold">Ambil dari File JSON</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-white/5">
-                            <td className="p-2 font-semibold text-white">Email Google Service Account</td>
-                            <td className="p-2 font-mono text-cyan-400">client_email</td>
-                          </tr>
-                          <tr>
-                            <td className="p-2 font-semibold text-white">Private Key Google (PEM)</td>
-                            <td className="p-2 font-mono text-cyan-400">private_key</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <p className="text-[10px] text-slate-500 italic">
-                      * Catatan: Kredensial ini cukup dikonfigurasi satu kali untuk seluruh sistem dan dapat digunakan oleh semua proyek.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">3</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Berikan Akses Service Account ke Properti GA4</p>
-                    <p className="text-slate-400">
-                      Masuk ke Google Analytics milik website yang ingin diintegrasikan. Buka: <strong>Admin &gt; Property Access Management &gt; Add Users</strong>.
-                    </p>
-                    <p className="text-slate-400">
-                      Tambahkan email Service Account berikut sebagai <strong>Viewer</strong>:
-                    </p>
-                    <div className="mt-2 p-2 bg-slate-900/60 rounded-lg border border-white/5 flex justify-between items-center max-w-md">
-                      <span className="font-mono text-[10px] text-slate-300 break-all select-all">
-                        {systemEmail || 'mbz-653@marketbiz-1686646660228.iam.gserviceaccount.com'}
-                      </span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(systemEmail || 'mbz-653@marketbiz-1686646660228.iam.gserviceaccount.com');
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="text-[10px] bg-white/5 hover:bg-white/10 text-white font-bold px-2.5 py-1 rounded border border-white/10 shrink-0 flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Clipboard className="w-3 h-3" />}
-                        {copied ? "Tersalin" : "Salin"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-500 italic mt-1">
-                      * Penting: Langkah ini wajib dilakukan untuk setiap Properti GA4 yang ingin dihubungkan.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">4</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Ambil ID Properti (Property ID) GA4</p>
-                    <p className="text-slate-400">
-                      Masuk ke: <strong>Google Analytics &gt; Admin &gt; Property Settings</strong>. Salin nilai <strong>Property ID</strong> (contoh: <code>415877840</code>).
-                    </p>
-                    <p className="text-[10px] text-amber-400 font-semibold">
-                      ⚠️ Jangan menggunakan Measurement ID (G-XXXXXXXXXX). MarketBiz hanya menerima Property ID berupa angka.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">5</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Hubungkan Properti GA4 ke Proyek</p>
-                    <p className="text-slate-400">
-                      Buka <strong>MarketBiz &gt; SEO Report &gt; Edit Proyek</strong>, lalu masukkan Property ID yang telah disalin dan simpan perubahan.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center font-bold text-cyan-400 shrink-0 font-mono">6</div>
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-bold text-white">Uji Koneksi</p>
-                    <p className="text-slate-400">
-                      Pastikan website sudah mengirim data ke Google Analytics. Buka halaman SEO Report proyek ini untuk melihat statistiknya secara real-time.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Troubleshooting Guide */}
-            <div className="high-tech-card p-6 space-y-4 border-slate-500/10 bg-slate-950/20">
-              <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-cyan-400" />
-                Troubleshooting & Solusi Error
-              </h4>
-              <div className="overflow-x-auto border border-white/5 rounded-xl bg-black/40">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead>
-                    <tr className="border-b border-white/10 bg-white/5 text-slate-200">
-                      <th className="p-3 font-bold">Pesan Error</th>
-                      <th className="p-3 font-bold">Penyebab</th>
-                      <th className="p-3 font-bold">Solusi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
-                      <td className="p-3 font-semibold text-rose-400 font-mono">User does not have sufficient permissions...</td>
-                      <td className="p-3 text-slate-400">Service Account belum memiliki akses ke Properti GA4.</td>
-                      <td className="p-3 text-slate-300">Tambahkan Service Account sebagai <strong>Viewer</strong> di Property Access Management.</td>
-                    </tr>
-                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
-                      <td className="p-3 font-semibold text-rose-400 font-mono">Property not found</td>
-                      <td className="p-3 text-slate-400">Property ID salah.</td>
-                      <td className="p-3 text-slate-300">Pastikan menggunakan Property ID (berupa angka), bukan Measurement ID (G-XXXXXXXXXX).</td>
-                    </tr>
-                    <tr className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
-                      <td className="p-3 font-semibold text-rose-400 font-mono">Invalid credentials</td>
-                      <td className="p-3 text-slate-400">Email Service Account atau Private Key tidak valid.</td>
-                      <td className="p-3 text-slate-300">Periksa kembali <code>client_email</code> dan <code>private_key</code> dari file JSON.</td>
-                    </tr>
-                    <tr className="hover:bg-white/[0.01] transition-colors">
-                      <td className="p-3 font-semibold text-rose-400 font-mono">No data available / Empty Report</td>
-                      <td className="p-3 text-slate-400">Website belum mengirim data ke GA4.</td>
-                      <td className="p-3 text-slate-300">Pastikan tag GA4 sudah terpasang dan aktif mengirimkan event di website tersebut.</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Setup Resources Right Sidebar */}
-          <div className="space-y-6">
-            <div className="high-tech-card p-6 border-cyan-500/20 bg-cyan-500/5">
-              <h4 className="text-xs font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-cyan-400" />
-                Sumber Pengaturan
-              </h4>
-              <p className="text-[10px] text-slate-400 leading-relaxed mb-4">
-                Rujuk panduan dokumentasi resmi Google ini untuk mengonfigurasi kredensial:
-              </p>
-              
-              <div className="space-y-3">
-                <a 
-                  href="https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5 hover:border-cyan-500/30 text-white transition-all text-xs font-semibold"
-                >
-                  <span>Panduan Mulai Cepat API Data GA4</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-                </a>
-
-                <a 
-                  href="https://support.google.com/analytics/answer/9304153?hl=id" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5 hover:border-cyan-500/30 text-white transition-all text-xs font-semibold"
-                >
-                  <span>Cara Menemukan ID Properti GA4</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-                </a>
-
-                <a 
-                  href="https://cloud.google.com/iam/docs/service-accounts-create" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg bg-black/40 border border-white/5 hover:border-cyan-500/30 text-white transition-all text-xs font-semibold"
-                >
-                  <span>Cara Membuat Service Account</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-cyan-400" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* RENDER LIVE / DEMO REPORT DASHBOARD DATA */
-        loadingGA ? (
+      {loadingGA ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
             <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
-            <p className="text-xs text-slate-500">Mengambil data statistik traffic GA4...</p>
+            <p className="text-xs text-slate-500">Mengambil data statistik traffic...</p>
           </div>
         ) : gaData ? (
           <div className="space-y-8 animate-in fade-in">
-            {/* Warning banner if credentials are not configured in system settings */}
+            {/* Info banner if not connected */}
             {gaData.isDemo && (
               <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex justify-between items-center print:hidden">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                   <div className="text-xs text-slate-400 space-y-1">
-                    <p className="font-bold text-amber-300">Menampilkan pratinjau Mode Demo simulasi.</p>
+                    <p className="font-bold text-amber-300">Google API belum terintegrasi.</p>
                     <p>
                       {gaData.credsMissing && "Kredensial Google Service Account belum dikonfigurasi di Pengaturan Sistem. "}
-                      {gaData.propertyMissing && "Proyek ini belum dikonfigurasi dengan ID Properti GA4. "}
+                      {gaData.propertyMissing && "Proyek ini belum memiliki ID Properti GA4. "}
+                      Semua metrik akan menampilkan 0 hingga integrasi selesai.
                     </p>
                   </div>
                 </div>
                 <button
-                  onClick={() => setShowDemoPreview(false)}
-                  className="px-4 py-1.5 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors cursor-pointer shrink-0"
+                  onClick={() => router.push('/settings')}
+                  className="px-4 py-1.5 bg-cyan-500 text-black rounded-lg text-xs font-bold hover:bg-cyan-400 transition-colors cursor-pointer shrink-0"
                 >
-                  LIHAT PANDUAN KONEKSI
+                  BUKA PENGATURAN
                 </button>
               </div>
             )}
 
-            {/* Section 1: Real GA Data */}
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
-                <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
-                Data Riil Google Analytics 4 (SEO)
-              </div>
+            {/* TABS */}
+            <div className="flex border-b border-white/10 space-x-6">
+              <button 
+                onClick={() => setActiveTab('ga4')}
+                className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'ga4' ? 'border-cyan-400 text-cyan-400' : 'border-transparent text-slate-400 hover:text-white hover:border-white/20'}`}
+              >
+                Google Analytics 4
+              </button>
+              <button 
+                onClick={() => setActiveTab('gsc')}
+                className={`pb-3 text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeTab === 'gsc' ? 'border-indigo-400 text-indigo-400' : 'border-transparent text-slate-400 hover:text-white hover:border-white/20'}`}
+              >
+                Search Console
+              </button>
+            </div>
+
+            {activeTab === 'ga4' && (
+              <div className="space-y-8 animate-in fade-in">
+                {/* Section 1: Real GA Data */}
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+                    <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+                    Data Riil Google Analytics 4 (SEO)
+                  </div>
               <button 
                 onClick={() => setIsHelpModalOpen(true)}
                 className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
@@ -698,69 +537,221 @@ export default function SEODetailPage() {
                 </div>
               </div>
 
-              {/* Keyword Performance Table */}
-              <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col h-[400px]">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Organic Keywords</h4>
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
-                    Estimasi Sistem
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0 pr-1">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-[10px] text-slate-500 border-b border-white/10 uppercase tracking-wider font-bold">
-                        <th className="pb-3">Keyword</th>
-                        <th className="pb-3 text-center">Rank</th>
-                        <th className="pb-3 text-right">Click Share</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {gaData.historical.keywords.map((kw, i) => (
-                        <tr key={i} className="hover:bg-white/[0.01] transition-colors">
-                          <td className="py-3 text-slate-300 font-medium">{kw.keyword}</td>
-                          <td className="py-3 text-center font-bold text-cyan-400 font-mono">#{kw.rank}</td>
-                          <td className="py-3 text-right font-mono text-slate-400">{kw.clicks} clicks</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               </div>
             </div>
+            )}
 
-            {/* Top Pages Section */}
-            <div className="high-tech-card p-6 border-white/5 bg-slate-900/20">
-              <div className="flex items-center justify-between mb-6">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider">Top Performing Pages</h4>
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-widest font-mono">
-                  Estimasi Sistem
-                </span>
+            {activeTab === 'gsc' && (
+              <div className="space-y-8 animate-in fade-in mt-6">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                    <span className="w-1.5 h-3 bg-indigo-400 rounded-xs"></span>
+                    Data Search Console (Organik Google)
+                  </div>
+                </div>
+
+                {loadingGSC ? (
+                  <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                    <p className="text-xs text-slate-500">Mengambil data Search Console...</p>
+                  </div>
+                ) : gscData ? (
+                  <>
+                    {gscData.isDemo && (
+                      <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p className="font-bold text-amber-300">Google Search Console belum terintegrasi.</p>
+                          <p>Pastikan Service Account sudah diundang ke Google Search Console milik website ini. Data akan kosong hingga integrasi selesai.</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col xl:flex-row gap-6">
+                      {/* Sidetabs */}
+                      <div className="w-full xl:w-64 shrink-0 flex flex-row xl:flex-col gap-2">
+                        <button
+                          onClick={() => { setGscSubTab('keywords'); setKeywordPage(1); }}
+                          className={`flex items-center justify-between p-4 rounded-xl text-left transition-all ${
+                            gscSubTab === 'keywords' 
+                              ? 'bg-indigo-500/10 border-indigo-500/30 border text-indigo-400' 
+                              : 'bg-slate-900/40 border-white/5 border text-slate-400 hover:bg-slate-800/40 hover:text-slate-300'
+                          }`}
+                        >
+                          <span className="text-sm font-bold uppercase tracking-wider">Keywords</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/40">{gscData.keywords.length}</span>
+                        </button>
+                        <button
+                          onClick={() => { setGscSubTab('pages'); setPagePage(1); }}
+                          className={`flex items-center justify-between p-4 rounded-xl text-left transition-all ${
+                            gscSubTab === 'pages' 
+                              ? 'bg-indigo-500/10 border-indigo-500/30 border text-indigo-400' 
+                              : 'bg-slate-900/40 border-white/5 border text-slate-400 hover:bg-slate-800/40 hover:text-slate-300'
+                          }`}
+                        >
+                          <span className="text-sm font-bold uppercase tracking-wider">Pages</span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/40">{gscData.topPages.length}</span>
+                        </button>
+                      </div>
+
+                      {/* Content Area */}
+                      <div className="flex-1 min-w-0">
+                        {gscSubTab === 'keywords' && (
+                          <div className="high-tech-card p-6 border-indigo-500/10 bg-slate-900/20 flex flex-col h-[650px]">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Semua Performa Kata Kunci</h4>
+                              <div className="relative w-full md:w-64">
+                                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input 
+                                  type="text"
+                                  placeholder="Cari keyword atau URL..."
+                                  value={keywordSearch}
+                                  onChange={(e) => { setKeywordSearch(e.target.value); setKeywordPage(1); }}
+                                  className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600"
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+                              <table className="w-full text-left text-xs relative">
+                                <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
+                                  <tr className="text-[10px] text-slate-500 border-b border-white/10 uppercase tracking-wider font-bold">
+                                    <th className="pb-3 pt-2">Keyword</th>
+                                    <th className="pb-3 pt-2">Halaman (URL)</th>
+                                    <th className="pb-3 pt-2 text-center">Rank</th>
+                                    <th className="pb-3 pt-2 text-center">CTR</th>
+                                    <th className="pb-3 pt-2 text-right">Clicks</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                  {paginatedKeywords.map((kw: any, i: number) => (
+                                    <tr key={i} className="hover:bg-white/[0.01] transition-colors">
+                                      <td className="py-3 text-slate-300 font-medium">{kw.keyword}</td>
+                                      <td className="py-3 text-slate-400 font-mono max-w-[150px] truncate" title={kw.url}>{kw.url || '-'}</td>
+                                      <td className="py-3 text-center font-bold text-indigo-400 font-mono">#{kw.rank}</td>
+                                      <td className="py-3 text-center text-slate-400 font-mono">{kw.ctr}%</td>
+                                      <td className="py-3 text-right font-mono text-slate-400">{kw.clicks}</td>
+                                    </tr>
+                                  ))}
+                                  {paginatedKeywords.length === 0 && (
+                                    <tr>
+                                      <td colSpan={5} className="py-8 text-center text-slate-500">Tidak ada data ditemukan.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between pt-4 mt-2 border-t border-white/10">
+                              <span className="text-[10px] text-slate-500">
+                                Menampilkan {filteredKeywords.length > 0 ? (keywordPage - 1) * rowsPerPage + 1 : 0} - {Math.min(keywordPage * rowsPerPage, filteredKeywords.length)} dari {filteredKeywords.length}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={() => setKeywordPage(p => Math.max(1, p - 1))}
+                                  disabled={keywordPage === 1}
+                                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className="text-xs font-mono text-slate-400 px-3 py-1 bg-black/40 rounded-md border border-white/5">
+                                  {keywordPage} / {totalKeywordPages}
+                                </span>
+                                <button 
+                                  onClick={() => setKeywordPage(p => Math.min(totalKeywordPages, p + 1))}
+                                  disabled={keywordPage === totalKeywordPages}
+                                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {gscSubTab === 'pages' && (
+                          <div className="high-tech-card p-6 border-indigo-500/10 bg-slate-900/20 flex flex-col h-[650px]">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                              <h4 className="text-xs font-bold text-white uppercase tracking-wider">Semua Performa Halaman</h4>
+                              <div className="relative w-full md:w-64">
+                                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input 
+                                  type="text"
+                                  placeholder="Cari URL halaman..."
+                                  value={pageSearch}
+                                  onChange={(e) => { setPageSearch(e.target.value); setPagePage(1); }}
+                                  className="w-full pl-9 pr-4 py-2 bg-black/40 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600"
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto min-h-0 pr-1">
+                              <table className="w-full text-left text-xs relative min-w-[300px]">
+                                <thead className="sticky top-0 bg-slate-900/95 backdrop-blur-md z-10">
+                                  <tr className="text-[10px] text-slate-500 border-b border-white/10 uppercase tracking-wider font-bold">
+                                    <th className="pb-3 pt-2">Page Path</th>
+                                    <th className="pb-3 pt-2 text-center">Clicks</th>
+                                    <th className="pb-3 pt-2 text-right">Impressions</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                  {paginatedPages.map((page: any, i: number) => (
+                                    <tr key={i} className="hover:bg-white/[0.01] transition-colors">
+                                      <td className="py-4 text-slate-300 font-mono font-medium max-w-[200px] truncate" title={page.path}>{page.path}</td>
+                                      <td className="py-4 text-center text-white font-bold font-mono">{page.clicks?.toLocaleString() || 0}</td>
+                                      <td className="py-4 text-right text-slate-400 font-mono">{page.impressions?.toLocaleString() || 0}</td>
+                                    </tr>
+                                  ))}
+                                  {paginatedPages.length === 0 && (
+                                    <tr>
+                                      <td colSpan={3} className="py-8 text-center text-slate-500">Tidak ada data ditemukan.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Pagination */}
+                            <div className="flex items-center justify-between pt-4 mt-2 border-t border-white/10">
+                              <span className="text-[10px] text-slate-500">
+                                Menampilkan {filteredPages.length > 0 ? (pagePage - 1) * rowsPerPage + 1 : 0} - {Math.min(pagePage * rowsPerPage, filteredPages.length)} dari {filteredPages.length}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={() => setPagePage(p => Math.max(1, p - 1))}
+                                  disabled={pagePage === 1}
+                                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <span className="text-xs font-mono text-slate-400 px-3 py-1 bg-black/40 rounded-md border border-white/5">
+                                  {pagePage} / {totalPagePages}
+                                </span>
+                                <button 
+                                  onClick={() => setPagePage(p => Math.min(totalPagePages, p + 1))}
+                                  disabled={pagePage === totalPagePages}
+                                  className="p-1.5 rounded-lg border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition-colors"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-4 border border-rose-500/20 bg-rose-500/5 rounded-xl text-rose-400 text-xs">
+                    Gagal mengambil data Search Console.
+                  </div>
+                )}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[500px]">
-                  <thead>
-                    <tr className="text-[10px] text-slate-500 border-b border-white/10 uppercase tracking-wider font-bold">
-                      <th className="pb-3">Page Path</th>
-                      <th className="pb-3 text-center">Page Views</th>
-                      <th className="pb-3 text-right">Exit Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {gaData.historical.topPages.map((page, i) => (
-                      <tr key={i} className="hover:bg-white/[0.01] transition-colors">
-                        <td className="py-4 text-slate-300 font-mono font-medium">{page.path}</td>
-                        <td className="py-4 text-center text-white font-bold font-mono">{page.views.toLocaleString()}</td>
-                        <td className="py-4 text-right text-slate-400 font-mono">{page.rate}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            )}
           </div>
-        ) : null
-      )}
+        ) : null}
+
 
       {/* Help Modal */}
       {isHelpModalOpen && (
@@ -779,57 +770,37 @@ export default function SEODetailPage() {
               </button>
             </div>
 
-            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">1. Active Users (Realtime)</p>
-                <p className="text-slate-400">Jumlah pengunjung unik yang sedang aktif membuka halaman website Anda saat ini (dalam jendela waktu 30 menit terakhir). Data ini diambil langsung dari Google Analytics secara real-time.</p>
+            <div className="space-y-6 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-2">
+                <h4 className="font-bold text-indigo-400 text-sm flex items-center gap-2">
+                  <Globe className="w-4 h-4" />
+                  1. Google Search Console (Fokus pada "SEBELUM" Masuk Website)
+                </h4>
+                <p className="text-slate-400">Search Console mengukur performa website Anda di halaman pencarian Google. Data yang terekam adalah interaksi pengguna <strong>sebelum</strong> mereka mengklik web Anda.</p>
+                <ul className="list-disc pl-4 space-y-1 text-slate-400 mt-2">
+                  <li><strong>Data yang diambil:</strong> Orang mengetik kata kunci (keyword) apa di Google? Website Anda muncul di urutan ke berapa (Ranking/Position)? Berapa kali link web Anda dilihat di Google (Impressions)? Berapa yang akhirnya diklik (Clicks)?</li>
+                  <li><strong>Fungsi Utama:</strong> Murni untuk strategi SEO (mengukur ranking keyword dan kesehatan pencarian Google).</li>
+                </ul>
               </div>
 
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">2. Organic Sessions</p>
-                <p className="text-slate-400">Total sesi kunjungan yang diawali dari hasil pencarian organik/alami di search engine (seperti Google Search, Bing) dalam 30 hari terakhir. Jika nilainya 0 sedangkan Active Users ada, itu berarti kunjungan yang masuk saat ini berasal dari sumber non-organik (seperti mengetik langsung URL website, iklan berbayar, atau rujukan link sosial media).</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">3. Page Views</p>
-                <p className="text-slate-400">Total akumulasi halaman di website Anda yang dibuka/dilihat oleh pengunjung organik selama 30 hari terakhir.</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">4. Unique Users</p>
-                <p className="text-slate-400">Jumlah individu/pengunjung unik yang berkunjung ke website melalui pencarian organik dalam 30 hari terakhir (satu pengunjung yang membuka berkali-kali hanya dihitung satu kali).</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">5. Bounce Rate (Rasio Pantulan)</p>
-                <p className="text-slate-400">Persentase pengunjung organik yang langsung meninggalkan website setelah hanya membuka satu halaman saja tanpa melakukan interaksi lebih lanjut (seperti mengklik tombol atau berpindah halaman). Rasio yang lebih rendah menunjukkan retensi/keterlibatan yang lebih baik.</p>
-              </div>
-
-              <div className="space-y-1">
-                <p className="font-bold text-cyan-400">6. Session Duration</p>
-                <p className="text-slate-400">Rata-rata durasi waktu yang dihabiskan oleh pengunjung organik di website Anda dalam satu kali kunjungan.</p>
-              </div>
-
-              <div className="border-t border-white/5 pt-4 mt-2">
-                <p className="font-bold text-indigo-400">📊 Rumus Hasil Analisis & Estimasi Sistem</p>
-                <p className="text-slate-400 mt-1">Metrik dengan lencana <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">Estimasi Sistem</span> dihitung menggunakan formula proyeksi berikut dari data dasar Google Analytics:</p>
-                
-                <div className="space-y-3 mt-3 pl-2">
-                  <div>
-                    <p className="font-semibold text-slate-200">• Estimasi Klik Kata Kunci (Keyword Click Share)</p>
-                    <p className="text-slate-400">Dihitung berdasarkan proyeksi CTR (Click-Through Rate) standar industri terhadap posisi peringkat kata kunci Anda.</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-200">• Estimasi Kunjungan Halaman (Top Performing Pages)</p>
-                    <p className="text-slate-400">Didistribusikan dari total Page Views riil GA4 dengan rasio kontribusi halaman bawaan:</p>
-                    <ul className="list-disc pl-4 mt-1 text-slate-400 space-y-0.5">
-                      <li>Halaman Utama (<code>/</code>): 50% dari total Page Views asli</li>
-                      <li>Halaman Layanan (<code>/services</code>): 30% dari total Page Views asli</li>
-                      <li>Halaman Tentang Kami (<code>/about</code>): 15% dari total Page Views asli</li>
-                      <li>Halaman Kontak (<code>/contact</code>): 5% dari total Page Views asli</li>
-                    </ul>
-                  </div>
+              <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl space-y-2">
+                <h4 className="font-bold text-cyan-400 text-sm flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  2. Google Analytics 4 (Fokus pada "SETELAH" Masuk Website)
+                </h4>
+                <p className="text-slate-400">Analytics mengukur aktivitas pengguna <strong>setelah</strong> mereka tiba dan membuka website Anda (baik mereka datang dari Google, Instagram, Facebook, Iklan, atau mengetik langsung).</p>
+                <ul className="list-disc pl-4 space-y-1 text-slate-400 mt-2">
+                  <li><strong>Data yang diambil:</strong> Berapa lama mereka diam di website? Halaman apa saja yang mereka baca (Top Pages)? Berapa banyak orang yang aktif sekarang (Realtime Users)? Apakah mereka langsung keluar tanpa baca (Bounce Rate)? Berapa banyak total pengunjung unik bulan ini (Total Users/Sessions)?</li>
+                  <li><strong>Fungsi Utama:</strong> Memahami perilaku pengunjung dan performa engagement website.</li>
+                </ul>
+                <div className="mt-3 p-3 bg-black/40 rounded-lg text-[11px] text-slate-400 border border-white/5">
+                  <p><strong>Kenapa data GA4 saya 0 semua?</strong> Jika data Active Users, Sessions, dan Page Views menunjukkan angka 0, artinya dalam 30 hari terakhir memang belum ada pengunjung riil yang masuk ke website Anda via pencarian Google Organik (atau tag GA4 belum terpasang dengan benar di website).</p>
                 </div>
+              </div>
+
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <h4 className="font-bold text-emerald-400 mb-2">Kesimpulan</h4>
+                <p className="text-slate-400">Jika Anda ingin menampilkan data "Pengunjung yang sedang buka web" atau "Total Kunjungan", kita pakai <strong>Google Analytics 4</strong>. Tapi jika Anda ingin menampilkan data "Website kita masuk halaman 1 Google untuk keyword apa saja?", kita memakai <strong>Google Search Console</strong>.</p>
               </div>
             </div>
 

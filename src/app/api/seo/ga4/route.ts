@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = request.nextUrl;
     const projectId = searchParams.get('project_id');
+    const range = searchParams.get('range') || '30daysAgo'; // today, 7daysAgo, 30daysAgo
 
     if (!projectId) {
       return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
@@ -51,37 +52,19 @@ export async function GET(request: NextRequest) {
         credsMissing: !hasCreds,
         propertyMissing: !hasProperty,
         realtime: {
-          activeUsers: Math.floor(Math.random() * 15) + 3,
-          pageViews: Math.floor(Math.random() * 80) + 40,
+          activeUsers: 0,
+          pageViews: 0,
         },
         historical: {
-          sessions: 1240,
-          pageViews: 3820,
-          users: 980,
-          bounceRate: 42.5,
-          avgSessionDuration: 184,
-          organicTraffic: 720,
-          chart: [
-            { date: 'Mon', Sessions: 120, Users: 90 },
-            { date: 'Tue', Sessions: 150, Users: 110 },
-            { date: 'Wed', Sessions: 180, Users: 130 },
-            { date: 'Thu', Sessions: 140, Users: 95 },
-            { date: 'Fri', Sessions: 210, Users: 160 },
-            { date: 'Sat', Sessions: 190, Users: 140 },
-            { date: 'Sun', Sessions: 250, Users: 180 },
-          ],
-          keywords: [
-            { keyword: 'digital marketing agency', rank: 3, clicks: 120 },
-            { keyword: 'seo services jakarta', rank: 2, clicks: 95 },
-            { keyword: 'marketbiz', rank: 1, clicks: 80 },
-            { keyword: 'jasa pembuat website', rank: 5, clicks: 65 },
-          ],
-          topPages: [
-            { path: '/', views: 1840, rate: '48%' },
-            { path: '/services', views: 980, rate: '35%' },
-            { path: '/about', views: 520, rate: '22%' },
-            { path: '/contact', views: 480, rate: '15%' },
-          ]
+          sessions: 0,
+          pageViews: 0,
+          users: 0,
+          bounceRate: 0,
+          avgSessionDuration: 0,
+          organicTraffic: 0,
+          chart: [],
+          keywords: [],
+          topPages: []
         }
       });
     }
@@ -93,7 +76,8 @@ export async function GET(request: NextRequest) {
         settings.google_private_key
       );
 
-      const propertyId = project.ga_property_id;
+      // Clean property ID just in case the user entered "properties/123456" instead of "123456"
+      const propertyId = project.ga_property_id.replace(/^properties\//, '');
 
       // 1. Run Realtime Report (Active users in last 30 minutes)
       const realtimeRes = await fetch(
@@ -126,7 +110,7 @@ export async function GET(request: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            dateRanges: [{ startDate: '30daysAgo', endDate: 'today' }],
+            dateRanges: [{ startDate: range, endDate: 'today' }],
             dimensions: [{ name: 'date' }],
             metrics: [
               { name: 'sessions' },
@@ -230,37 +214,19 @@ export async function GET(request: NextRequest) {
         isDemo: true,
         apiError: apiErr.message,
         realtime: {
-          activeUsers: 12,
-          pageViews: 24,
+          activeUsers: 0,
+          pageViews: 0,
         },
         historical: {
-          sessions: 1240,
-          pageViews: 3820,
-          users: 980,
-          bounceRate: 42.5,
-          avgSessionDuration: 184,
-          organicTraffic: 720,
-          chart: [
-            { date: 'Mon', Sessions: 120, Users: 90 },
-            { date: 'Tue', Sessions: 150, Users: 110 },
-            { date: 'Wed', Sessions: 180, Users: 130 },
-            { date: 'Thu', Sessions: 140, Users: 95 },
-            { date: 'Fri', Sessions: 210, Users: 160 },
-            { date: 'Sat', Sessions: 190, Users: 140 },
-            { date: 'Sun', Sessions: 250, Users: 180 },
-          ],
-          keywords: [
-            { keyword: 'digital marketing agency', rank: 3, clicks: 120 },
-            { keyword: 'seo services jakarta', rank: 2, clicks: 95 },
-            { keyword: 'marketbiz', rank: 1, clicks: 80 },
-            { keyword: 'jasa pembuat website', rank: 5, clicks: 65 },
-          ],
-          topPages: [
-            { path: '/', views: 1840, rate: '48%' },
-            { path: '/services', views: 980, rate: '35%' },
-            { path: '/about', views: 520, rate: '22%' },
-            { path: '/contact', views: 480, rate: '15%' },
-          ]
+          sessions: 0,
+          pageViews: 0,
+          users: 0,
+          bounceRate: 0,
+          avgSessionDuration: 0,
+          organicTraffic: 0,
+          chart: [],
+          keywords: [],
+          topPages: []
         }
       });
     }

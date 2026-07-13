@@ -424,7 +424,7 @@ export default function SosmedOverviewPage() {
 
       {/* Main Filter & Table Card */}
       <div className="high-tech-card overflow-hidden">
-        <div className="p-6 border-b border-white/10 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="p-6 border-b border-white/10 flex flex-col md:flex-row gap-4 items-center justify-between relative z-20">
           <div className="relative w-full md:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input 

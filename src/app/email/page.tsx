@@ -528,7 +528,7 @@ export default function EmailPage() {
           {/* Table Area */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             <div className="xl:col-span-3 space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between relative z-20">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-indigo-400" />
                   Email Campaign Reports ({totalCount})

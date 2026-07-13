@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Settings, 
-  Key, 
-  Users, 
-  Shield, 
-  Globe, 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  Settings,
+  Key,
+  Users,
+  Shield,
+  Globe,
+  CheckCircle2,
+  AlertCircle,
   RefreshCw,
   Lock,
   Mail,
@@ -22,7 +22,8 @@ import {
   Smartphone,
   Plus,
   X,
-  Edit2
+  Edit2,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -162,8 +163,8 @@ export default function SettingsPage() {
             onClick={() => setActiveTab(tab.id as Tab)}
             className={cn(
               "flex items-center gap-2 pb-4 text-sm font-bold transition-all relative cursor-pointer",
-              activeTab === tab.id 
-                ? "text-cyan-400" 
+              activeTab === tab.id
+                ? "text-cyan-400"
                 : "text-slate-500 hover:text-slate-300"
             )}
           >
@@ -179,18 +180,18 @@ export default function SettingsPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 space-y-6">
           {activeTab === 'api' && (
-            <APIIntegrations 
-              settings={settings} 
-              onSave={handleSave} 
-              saving={saving} 
+            <APIIntegrations
+              settings={settings}
+              onSave={handleSave}
+              saving={saving}
             />
           )}
           {activeTab === 'team' && <TeamManagement />}
           {activeTab === 'agency' && (
-            <AgencyBranding 
-              settings={settings} 
-              onSave={handleSave} 
-              saving={saving} 
+            <AgencyBranding
+              settings={settings}
+              onSave={handleSave}
+              saving={saving}
             />
           )}
         </div>
@@ -203,15 +204,15 @@ export default function SettingsPage() {
               Status Sistem
             </h3>
             <div className="space-y-4">
-              <StatusItem 
-                label="Integrasi Inti AI" 
-                status={settings.ai_api_key ? "Terkonfigurasi" : "Belum Dikonfigurasi"} 
-                color={settings.ai_api_key ? "text-emerald-400" : "text-amber-400"} 
+              <StatusItem
+                label="Integrasi Inti AI"
+                status={settings.ai_api_key ? "Terkonfigurasi" : "Belum Dikonfigurasi"}
+                color={settings.ai_api_key ? "text-emerald-400" : "text-amber-400"}
               />
-              <StatusItem 
-                label="API Google Analytics" 
-                status={settings.google_service_account_email ? "Terkonfigurasi" : "Belum Dikonfigurasi"} 
-                color={settings.google_service_account_email ? "text-emerald-400" : "text-amber-400"} 
+              <StatusItem
+                label="API Google Analytics"
+                status={settings.google_service_account_email ? "Terkonfigurasi" : "Belum Dikonfigurasi"}
+                color={settings.google_service_account_email ? "text-emerald-400" : "text-amber-400"}
               />
               <StatusItem label="Latensi Database" status="15ms" color="text-emerald-400" />
             </div>
@@ -260,6 +261,9 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
   const [gaEmail, setGaEmail] = useState(settings.google_service_account_email);
   const [gaPrivateKey, setGaPrivateKey] = useState(settings.google_private_key);
 
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [helpTab, setHelpTab] = useState<'ga4' | 'gsc'>('ga4');
+
   const handleSaveAI = () => {
     onSave({
       ai_provider: provider,
@@ -280,36 +284,44 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
     <div className="space-y-6 animate-in slide-in-from-left-4">
       {/* 1. Google Analytics API Card (FIRST PLACE) */}
       <div className="high-tech-card p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <Globe className="w-5 h-5 text-cyan-400" />
-            Integrasi API Google Analytics 4
+            Google Services (Analytics & GSC)
           </h3>
-          <span className={cn("text-[10px] border px-2 py-0.5 rounded font-bold",
-            gaEmail ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-500/10 text-slate-500 border-white/5"
-          )}>
-            {gaEmail ? "AKTIF" : "NONAKTIF"}
-          </span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowHelpModal(true)}
+              className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 rounded-lg transition-colors border border-cyan-500/20 cursor-pointer"
+            >
+              <HelpCircle className="w-3.5 h-3.5" /> Panduan Integrasi
+            </button>
+            <span className={cn("text-[10px] border px-2 py-0.5 rounded font-bold",
+              gaEmail ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-500/10 text-slate-500 border-white/5"
+            )}>
+              {gaEmail ? "AKTIF" : "NONAKTIF"}
+            </span>
+          </div>
         </div>
-        
+
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email Google Service Account</label>
-            <input 
-              type="email" 
+            <input
+              type="email"
               value={gaEmail}
               onChange={(e) => setGaEmail(e.target.value)}
               placeholder="marketbiz-service@project-id.iam.gserviceaccount.com"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
             />
-            <p className="text-[10px] text-slate-500">
-              *Undang email ini sebagai "Viewer" di pengaturan Properti Google Analytics Anda.
-            </p>
+            <div className="text-[10px] text-slate-500 space-y-1 mt-1">
+              <p>* Klik tombol <strong>Panduan Integrasi</strong> di atas untuk melihat langkah-langkah detail menghubungkan akun Anda.</p>
+            </div>
           </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Private Key Google (Format PEM)</label>
-            <textarea 
+            <textarea
               value={gaPrivateKey}
               onChange={(e) => setGaPrivateKey(e.target.value)}
               rows={5}
@@ -318,7 +330,7 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleSaveGA}
             disabled={saving}
             className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
@@ -341,12 +353,12 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
             {apiKey ? "AKTIF" : "NONAKTIF"}
           </span>
         </div>
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Penyedia AI</label>
-              <select 
+              <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50"
@@ -357,11 +369,11 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
                 <option value="custom">Custom Webhook / API</option>
               </select>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Nama Model</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
                 placeholder="e.g. gpt-4o, gemini-1.5-pro"
@@ -372,8 +384,8 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Base URL API</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="e.g. https://api.openai.com/v1"
@@ -383,8 +395,8 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">API Key Rahasia</label>
-            <input 
-              type="password" 
+            <input
+              type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="••••••••••••••••••••••••••••"
@@ -392,7 +404,7 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleSaveAI}
             disabled={saving}
             className="w-full py-2.5 bg-linear-to-r from-purple-500 to-indigo-500 hover:opacity-90 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
@@ -401,6 +413,193 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
           </button>
         </div>
       </div>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-4xl bg-slate-950 border border-white/15 rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden max-h-[90vh]">
+            
+            {/* Sidetabs */}
+            <div className="w-full md:w-64 bg-slate-900/50 p-4 border-r border-white/10 shrink-0 space-y-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Panduan Integrasi</h3>
+                <button onClick={() => setShowHelpModal(false)} className="md:hidden text-slate-400 hover:text-white cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => setHelpTab('ga4')}
+                className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                  helpTab === 'ga4' 
+                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' 
+                    : 'text-slate-400 hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                Google Analytics 4
+              </button>
+              <button
+                onClick={() => setHelpTab('gsc')}
+                className={`w-full text-left p-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                  helpTab === 'gsc' 
+                    ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' 
+                    : 'text-slate-400 hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                Google Search Console
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-6 overflow-y-auto relative">
+              <button 
+                onClick={() => setShowHelpModal(false)}
+                className="absolute right-4 top-4 text-slate-400 hover:text-white hidden md:block cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {helpTab === 'ga4' && (
+                <div className="space-y-6">
+                  <h4 className="text-lg font-bold text-cyan-400 flex items-center gap-2">
+                    <Globe className="w-5 h-5" />
+                    Panduan Pengaturan Google Analytics 4
+                  </h4>
+                  
+                  <div className="space-y-6 text-sm text-slate-300">
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Buat Google Cloud Project & Service Account</h5>
+                        <ul className="list-disc pl-4 space-y-1 text-xs text-slate-400">
+                          <li>Buka <a href="https://console.cloud.google.com" target="_blank" className="text-cyan-400 hover:underline">Google Cloud Console</a>.</li>
+                          <li>Buat Project baru (atau gunakan Project yang sudah ada).</li>
+                          <li>Buka <strong>APIs & Services &gt; Library</strong>.</li>
+                          <li>Cari <strong>Google Analytics Data API</strong> lalu klik <strong>Enable</strong>.</li>
+                          <li>Masuk ke <strong>IAM & Admin &gt; Service Accounts</strong>.</li>
+                          <li>Klik <strong>Create Service Account</strong>.</li>
+                          <li>Pada langkah Permissions, tidak perlu memilih Role, langsung klik <strong>Continue</strong>.</li>
+                          <li>Setelah Service Account dibuat, buka tab <strong>Keys</strong>.</li>
+                          <li>Klik <strong>Add Key &gt; Create New Key &gt; JSON</strong>.</li>
+                          <li>Simpan file JSON yang diunduh.</li>
+                        </ul>
+                        <p className="text-[10px] text-slate-500 italic">* Catatan: Satu Service Account dapat digunakan untuk mengakses banyak Properti GA4. Anda tidak perlu membuat Service Account baru untuk setiap proyek.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Konfigurasikan Integrasi Google Analytics di MarketBiz</h5>
+                        <p className="text-xs text-slate-400">Isi data dari file JSON yang diunduh ke form Pengaturan Sistem:</p>
+                        <div className="p-3 bg-black/40 rounded-lg border border-white/5 text-xs text-slate-400 space-y-2">
+                          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                            <span className="font-bold">Field MarketBiz</span>
+                            <span className="font-bold">Ambil dari File JSON</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Email Google Service Account</span>
+                            <span className="font-mono text-cyan-400">client_email</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Private Key Google (PEM)</span>
+                            <span className="font-mono text-cyan-400">private_key</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Berikan Akses Service Account ke Properti GA4</h5>
+                        <p className="text-xs text-slate-400">Masuk ke Google Analytics milik website yang ingin diintegrasikan. Buka: <strong>Admin &gt; Property Access Management &gt; Add Users</strong>.</p>
+                        <p className="text-xs text-slate-400">Tambahkan email Service Account yang Anda buat sebagai <strong>Viewer</strong>.</p>
+                        <p className="text-[10px] text-slate-500 italic">* Penting: Langkah ini wajib dilakukan untuk setiap Properti GA4 yang ingin dihubungkan.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">4</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Ambil ID Properti (Property ID) GA4</h5>
+                        <p className="text-xs text-slate-400">Masuk ke: <strong>Google Analytics &gt; Admin &gt; Property Settings</strong>. Salin nilai <strong>Property ID</strong> (contoh: 415877848).</p>
+                        <p className="text-xs text-amber-400">⚠️ Jangan menggunakan Measurement ID (G-XXXXXXXXXX). MarketBiz hanya menerima Property ID berupa angka.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">5</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Hubungkan Properti GA4 ke Proyek</h5>
+                        <p className="text-xs text-slate-400">Buka <strong>SEO Dashboard</strong> proyek bersangkutan, lalu masukkan Property ID yang telah disalin dan simpan perubahan.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {helpTab === 'gsc' && (
+                <div className="space-y-6">
+                  <h4 className="text-lg font-bold text-indigo-400 flex items-center gap-2">
+                    <Globe className="w-5 h-5" />
+                    Panduan Pengaturan Google Search Console
+                  </h4>
+                  
+                  <div className="space-y-6 text-sm text-slate-300">
+                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl mb-4">
+                      <p className="text-xs text-indigo-200">Asumsi: Anda sudah membuat Service Account Google Cloud sesuai panduan GA4. Kita akan menggunakan Service Account yang sama untuk Search Console.</p>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Enable Google Search Console API</h5>
+                        <ul className="list-disc pl-4 space-y-1 text-xs text-slate-400">
+                          <li>Buka <a href="https://console.cloud.google.com" target="_blank" className="text-indigo-400 hover:underline">Google Cloud Console</a>.</li>
+                          <li>Masuk ke proyek yang sama dengan GA4.</li>
+                          <li>Buka <strong>APIs & Services &gt; Library</strong>.</li>
+                          <li>Cari <strong>Google Search Console API</strong> lalu klik <strong>Enable</strong>.</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Berikan Akses Service Account ke Properti GSC</h5>
+                        <ul className="list-disc pl-4 space-y-1 text-xs text-slate-400">
+                          <li>Buka dashboard <a href="https://search.google.com/search-console" target="_blank" className="text-indigo-400 hover:underline">Google Search Console</a>.</li>
+                          <li>Pilih properti website Anda.</li>
+                          <li>Masuk ke menu <strong>Settings</strong> (Pengaturan) di menu sebelah kiri.</li>
+                          <li>Pilih <strong>Users and permissions</strong> (Pengguna dan izin).</li>
+                          <li>Klik tombol <strong>Add User</strong> (Tambahkan pengguna).</li>
+                          <li>Paste alamat email Service Account yang digunakan (sama seperti GA4).</li>
+                          <li>Atur Permission (Izin) menjadi <strong>Restricted</strong> (Terbatas) atau Full.</li>
+                          <li>Klik <strong>Add</strong>.</li>
+                        </ul>
+                        <p className="text-[10px] text-slate-500 italic">* Penting: Langkah ini wajib dilakukan untuk setiap Properti GSC (website) yang ingin ditarik datanya.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</div>
+                      <div className="space-y-2">
+                        <h5 className="font-bold text-white">Pastikan URL Website Terdaftar Sesuai</h5>
+                        <p className="text-xs text-slate-400">Sistem mengambil data GSC berdasarkan URL website yang Anda daftarkan di menu Proyek MarketBiz. Pastikan URL-nya benar-benar cocok (termasuk <code>https://</code> atau awalan <code>www</code>) dengan yang terdaftar di Search Console.</p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 p-3 border border-amber-500/20 bg-amber-500/10 rounded-xl">
+                      <h5 className="font-bold text-amber-400 text-xs mb-1">Penting Diketahui</h5>
+                      <p className="text-[11px] text-amber-200/70">Setelah API diaktifkan dan akun diundang, Google mungkin memerlukan waktu antara beberapa jam hingga maksimal 48 jam agar data pertama dapat ditarik oleh sistem melalui API dengan normal.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -408,7 +607,7 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
 function TeamManagement() {
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Add modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -526,7 +725,7 @@ function TeamManagement() {
       <div className="high-tech-card overflow-hidden">
         <div className="p-6 border-b border-white/10 flex justify-between items-center">
           <h3 className="text-lg font-bold text-white">Anggota Agensi</h3>
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
             className="bg-cyan-500 text-black px-4 py-2 rounded-lg text-xs font-bold hover:bg-cyan-400 transition-all cursor-pointer flex items-center gap-1.5"
           >
@@ -555,7 +754,7 @@ function TeamManagement() {
                       <p className="text-sm font-bold text-white flex items-center gap-2">
                         {m.full_name || 'Admin Baru'}
                         <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase",
-                          m.is_active !== false 
+                          m.is_active !== false
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : "bg-red-500/10 text-red-400 border border-red-500/20"
                         )}>
@@ -587,11 +786,11 @@ function TeamManagement() {
       {/* Modal Add Admin */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <form 
+          <form
             onSubmit={handleAddAdmin}
             className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
           >
-            <button 
+            <button
               type="button"
               onClick={() => setIsModalOpen(false)}
               className="absolute right-4 top-4 text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -607,8 +806,8 @@ function TeamManagement() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Lengkap</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Contoh: Budi Santoso"
@@ -619,8 +818,8 @@ function TeamManagement() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Alamat Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="budis@marketbiz.id"
@@ -631,8 +830,8 @@ function TeamManagement() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Kata Sandi</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 6 karakter"
@@ -642,7 +841,7 @@ function TeamManagement() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={saving}
               className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
@@ -657,11 +856,11 @@ function TeamManagement() {
       {/* Modal Edit Admin */}
       {isEditModalOpen && editingAdmin && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-          <form 
+          <form
             onSubmit={handleSaveEditAdmin}
             className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
           >
-            <button 
+            <button
               type="button"
               onClick={() => {
                 setIsEditModalOpen(false);
@@ -680,8 +879,8 @@ function TeamManagement() {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Lengkap</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
                   placeholder="Contoh: Budi Santoso"
@@ -692,8 +891,8 @@ function TeamManagement() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Alamat Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="budis@marketbiz.id"
@@ -711,7 +910,7 @@ function TeamManagement() {
                   type="button"
                   onClick={() => setEditIsActive(!editIsActive)}
                   className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border",
-                    editIsActive 
+                    editIsActive
                       ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
                       : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
                   )}
@@ -721,7 +920,7 @@ function TeamManagement() {
               </div>
             </div>
 
-            <button 
+            <button
               type="submit"
               disabled={saving}
               className="w-full py-3 bg-linear-to-r from-cyan-500 to-indigo-500 text-black font-bold rounded-lg text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
@@ -756,22 +955,22 @@ function AgencyBranding({ settings, onSave, saving }: ComponentProps) {
           <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-2 hover:border-cyan-500/30 transition-all cursor-pointer bg-white/[0.02] shrink-0">
             <span className="text-[10px] font-bold text-slate-500 uppercase">Logo</span>
           </div>
-          
+
           <div className="flex-1 w-full space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Agensi</label>
-              <input 
-                value={name} 
+              <input
+                value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
               />
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Email Dukungan</label>
-                <input 
-                  value={email} 
+                <input
+                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
                 />
@@ -779,8 +978,8 @@ function AgencyBranding({ settings, onSave, saving }: ComponentProps) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">WhatsApp Dukungan</label>
-                <input 
-                  value={whatsapp} 
+                <input
+                  value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
                   placeholder="e.g. +628123456789"
                   className="w-full bg-white/5 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-cyan-500/50"
@@ -790,7 +989,7 @@ function AgencyBranding({ settings, onSave, saving }: ComponentProps) {
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleSaveBranding}
           disabled={saving}
           className="w-full py-2.5 bg-linear-to-r from-cyan-500 to-indigo-500 text-black rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"

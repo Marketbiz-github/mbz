@@ -12,7 +12,7 @@ export async function getGoogleAccessToken(email: string, privateKey: string): P
   const now = Math.floor(Date.now() / 1000);
   const claim = {
     iss: email,
-    scope: 'https://www.googleapis.com/auth/analytics.readonly',
+    scope: 'https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/webmasters.readonly',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,
