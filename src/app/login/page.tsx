@@ -61,18 +61,12 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md space-y-8 bg-slate-950/65 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.15)] relative overflow-hidden animate-in fade-in zoom-in-95 duration-500">
 
-        {/* Top Header Card */}
         <div className="text-center relative space-y-4">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-linear-to-br from-cyan-500/20 to-purple-500/20 rounded-2xl border border-white/10 flex items-center justify-center shadow-lg shadow-cyan-500/5">
-              <ShieldCheck className="w-9 h-9 text-cyan-400" />
-            </div>
+            <img src="/logo.png" alt="MarketBiz Logo" className="h-12 md:h-14 w-auto object-contain" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
-              MarketBiz
-            </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 mt-2">
               Sistem Manajemen & Pelaporan Kinerja Kampanye Digital
             </p>
           </div>

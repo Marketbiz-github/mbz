@@ -53,8 +53,7 @@ export default function RootLayout({
               {/* Mobile Header */}
               <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-black/50 backdrop-blur-xl border-b border-white/10 z-60 flex items-center justify-between px-4">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-cyan-500 rounded flex items-center justify-center font-bold text-black italic text-sm">M</div>
-                  <span className="font-bold text-lg tracking-tight text-white">MARKETBIZ</span>
+                  <img src="/logo.png" alt="MarketBiz" className="h-7 w-auto object-contain" />
                 </div>
                 <button
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}

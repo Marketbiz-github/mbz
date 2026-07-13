@@ -39,10 +39,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
     <aside className="w-64 h-full border-r border-white/10 bg-black/95 backdrop-blur-2xl flex flex-col shadow-2xl">
       <div className="p-6 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-cyan-500 rounded flex items-center justify-center font-bold text-black italic">M</div>
-          <span className="font-bold text-xl tracking-tight bg-linear-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            MARKETBIZ
-          </span>
+          <img src="/logo.png" alt="MarketBiz" className="h-8 w-auto object-contain" />
         </div>
       </div>
 
