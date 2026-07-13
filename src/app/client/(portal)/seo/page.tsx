@@ -321,9 +321,11 @@ export default function SEOOverviewPage() {
                               "text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border",
                               proj.status === 'active' 
                                 ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" 
+                                : proj.status === 'completed'
+                                ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
                                 : "bg-slate-800 text-slate-400 border-white/10"
                             )}>
-                              {proj.status === 'active' ? 'ACTIVE' : 'COMPLETED'}
+                              {proj.status ? proj.status.replace('_', ' ') : 'ACTIVE'}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right">
