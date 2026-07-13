@@ -155,6 +155,7 @@ export default function SEOOverviewPage() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editUrl, setEditUrl] = useState('');
   const [editGaId, setEditGaId] = useState('');
+  const [editStatus, setEditStatus] = useState('active');
   const [saving, setSaving] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [aggregatedGA, setAggregatedGA] = useState({
@@ -357,6 +358,7 @@ export default function SEOOverviewPage() {
     setEditingProject(proj);
     setEditUrl(proj.website_url);
     setEditGaId(proj.ga_property_id);
+    setEditStatus(proj.status || 'active');
     setIsEditModalOpen(true);
   };
 
@@ -372,19 +374,22 @@ export default function SEOOverviewPage() {
     }
     setSaving(true);
     try {
-      // Validate GA Property ID
-      const valRes = await fetch(`/api/seo/validate-property?property_id=${encodeURIComponent(editGaId)}`);
-      const valData = await valRes.json();
-      if (!valData.valid) {
-        alert(valData.error || 'Property ID Google Analytics tidak valid atau tidak bisa diakses.');
-        setSaving(false);
-        return;
-      }
-      if (valData.warning) {
-        const confirmSave = window.confirm(valData.warning + '\n\nTetap simpan proyek?');
-        if (!confirmSave) {
-          setSaving(false);
-          return;
+      // Validate GA Property ID only if it was changed
+      if (editGaId !== editingProject.ga_property_id) {
+        const valRes = await fetch(`/api/seo/validate-property?property_id=${encodeURIComponent(editGaId)}`);
+        const valData = await valRes.json();
+        if (!valData.valid) {
+          const forceSave = window.confirm((valData.error || 'Property ID Google Analytics tidak valid atau tidak bisa diakses.') + '\n\nTetap paksakan simpan?');
+          if (!forceSave) {
+            setSaving(false);
+            return;
+          }
+        } else if (valData.warning) {
+          const confirmSave = window.confirm(valData.warning + '\n\nTetap simpan proyek?');
+          if (!confirmSave) {
+            setSaving(false);
+            return;
+          }
         }
       }
 
@@ -393,6 +398,7 @@ export default function SEOOverviewPage() {
         .update({
           website_url: editUrl,
           ga_property_id: editGaId,
+          status: editStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingProject.id);
@@ -804,6 +810,21 @@ export default function SEOOverviewPage() {
                   placeholder="e.g. 415877840"
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Project Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full bg-slate-900 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50"
+                >
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="archived">Archived</option>
+                </select>
               </div>
             </div>
 

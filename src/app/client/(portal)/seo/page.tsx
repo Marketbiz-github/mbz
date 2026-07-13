@@ -119,6 +119,7 @@ export default function SEOOverviewPage() {
         .select('*, services!inner(name)', { count: 'exact' })
         .eq('services.name', 'SEO')
         .eq('client_id', clientId)
+        .in('status', ['active', 'completed', 'on_hold', 'cancelled'])
         .order('created_at', { ascending: false });
 
       if (search) {

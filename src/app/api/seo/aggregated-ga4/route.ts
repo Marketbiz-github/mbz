@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
       .from('projects')
       .select('id, ga_property_id')
       .not('ga_property_id', 'is', null)
-      .neq('ga_property_id', '');
+      .neq('ga_property_id', '')
+      .in('status', ['active', 'completed', 'on_hold']);
 
     if (clientId) {
       projectQuery = projectQuery.eq('client_id', clientId);
