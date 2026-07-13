@@ -42,8 +42,8 @@ interface Report {
   };
 }
 
-export default function ClientWABlastReportDetail() {
-  const { reportId } = useParams();
+export default function ClientWABlastReportDetail({ params }: { params: Promise<{ reportId: string }> }) {
+  const { reportId } = React.use(params);
   const router = useRouter();
   const supabase = createClient();
   const { user } = useAuth();

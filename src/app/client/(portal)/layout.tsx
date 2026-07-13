@@ -6,7 +6,8 @@ import { useAuth } from '@/providers/AuthProvider';
 import ClientSidebar from '@/components/client/ClientSidebar';
 import ClientNavbar from '@/components/client/ClientNavbar';
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({ children, params }: { children: React.ReactNode; params: Promise<Record<string, string>> }) {
+  React.use(params); // Consume the Promise to prevent Next.js 16 enumeration warning
   const { user, role, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setSidebarOpen] = useState(false);

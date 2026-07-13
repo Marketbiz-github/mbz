@@ -90,8 +90,9 @@ const platforms = [
   { id: 'facebook', label: 'Facebook', icon: FacebookLogo, color: '#1877F2' }
 ];
 
-export default function SosmedDetailPage() {
-  const { id } = useParams() as { id: string };
+export default function SosmedDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = React.use(params);
+  const id = resolvedParams.id;
   const { role } = useAuth();
   const supabase = createClient();
 

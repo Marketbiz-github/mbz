@@ -95,9 +95,9 @@ interface GSCData {
   topPages: PageData[];
 }
 
-export default function SEODetailPage() {
+export default function SEODetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = React.use(params);
   const supabase = createClient();
   const { user } = useAuth();
 

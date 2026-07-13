@@ -31,8 +31,9 @@ interface Report {
   created_at: string;
 }
 
-export default function WABlastProjectDetail() {
-  const { id } = useParams();
+export default function WABlastProjectDetail({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = React.use(params);
+  const id = resolvedParams.id;
   const router = useRouter();
   const supabase = createClient();
   const projectId = id as string;

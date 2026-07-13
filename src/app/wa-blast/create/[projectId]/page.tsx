@@ -18,8 +18,8 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import * as XLSX from 'xlsx';
 
-export default function CreateWABlastCampaign() {
-  const { projectId } = useParams();
+export default function CreateWABlastCampaign({ params }: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = React.use(params);
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);

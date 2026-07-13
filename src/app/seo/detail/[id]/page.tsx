@@ -90,9 +90,10 @@ interface GSCData {
   topPages: PageData[];
 }
 
-export default function SEODetailPage() {
+export default function SEODetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { id } = useParams();
+  const resolvedParams = React.use(params);
+  const id = resolvedParams.id;
   const supabase = createClient();
 
   const [project, setProject] = useState<Project | null>(null);

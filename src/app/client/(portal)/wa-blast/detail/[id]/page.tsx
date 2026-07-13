@@ -29,8 +29,8 @@ interface Report {
   created_at: string;
 }
 
-export default function ClientWABlastProjectDetail() {
-  const { id } = useParams();
+export default function ClientWABlastProjectDetail({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
   const router = useRouter();
   const supabase = createClient();
   const { user } = useAuth();

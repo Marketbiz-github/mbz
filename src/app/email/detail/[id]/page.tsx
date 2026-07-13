@@ -53,9 +53,9 @@ interface EmailCampaign {
   };
 }
 
-export default function CampaignDetailPage() {
+export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = React.use(params);
   const supabase = createClient();
 
   const [campaign, setCampaign] = useState<EmailCampaign | null>(null);

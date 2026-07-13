@@ -10,9 +10,12 @@ import './globals.css';
 
 export default function RootLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<Record<string, string>>;
 }) {
+  React.use(params); // Consume the Promise to prevent Next.js 16 enumeration warning
   const pathname = usePathname();
   const isLoginPage = pathname === '/login' || pathname === '/';
   // `/client` is the admin page, `/client/*` is the client portal

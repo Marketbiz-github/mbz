@@ -13,7 +13,10 @@ import {
   Loader2,
   Eye,
   ExternalLink,
-  Share2
+  Share2,
+  Users,
+  TrendingUp,
+  Heart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -207,6 +210,14 @@ export default function SosmedOverviewPage() {
   const [editPlatforms, setEditPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
   const [saving, setSaving] = useState(false);
 
+  // Global Performance Stats
+  const [stats, setStats] = useState({
+    totalReach: 0,
+    totalImpressions: 0,
+    totalEngagement: 0,
+    engagementRate: 0
+  });
+
   useEffect(() => {
     document.title = "Sosmed Performance | MarketBiz";
     fetchInitialData();
@@ -217,6 +228,45 @@ export default function SosmedOverviewPage() {
       fetchData();
     }
   }, [page, filterClientId, sosmedServiceId]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [filterClientId, projects]);
+
+  const fetchStats = async () => {
+    try {
+      let query = supabase.from('sosmed_reports').select('reach, impressions, engagement');
+
+      if (filterClientId && projects.length > 0) {
+        const projectIds = projects.filter(p => p.client_id === filterClientId).map(p => p.id);
+        if (projectIds.length > 0) {
+          query = query.in('project_id', projectIds);
+        } else {
+          setStats({ totalReach: 0, totalImpressions: 0, totalEngagement: 0, engagementRate: 0 });
+          return;
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data) {
+        const totalReach = data.reduce((acc, curr) => acc + (curr.reach || 0), 0);
+        const totalImpressions = data.reduce((acc, curr) => acc + (curr.impressions || 0), 0);
+        const totalEngagement = data.reduce((acc, curr) => acc + (curr.engagement || 0), 0);
+        const engagementRate = totalReach > 0 ? (totalEngagement / totalReach) * 100 : 0;
+
+        setStats({
+          totalReach,
+          totalImpressions,
+          totalEngagement,
+          engagementRate
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -389,36 +439,138 @@ export default function SosmedOverviewPage() {
         </button>
       </div>
 
-      {/* Stats Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="high-tech-card p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-            <Share2 className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Total Proyek</p>
-            <h3 className="text-2xl font-bold text-white">{totalCount}</h3>
-          </div>
+      {/* Section 1: Real-time Sosmed Metrics */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
+          Data Proyek Sosmed (Global)
         </div>
-        <div className="high-tech-card p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-            <Activity className="w-6 h-6" />
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+        {/* Total Proyek */}
+        <div className="high-tech-card p-5 border-cyan-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Share2 className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Proyek</span>
           </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Proyek Aktif</p>
-            <h3 className="text-2xl font-bold text-white">
-              {projects.filter(p => p.status === 'active').length}
-            </h3>
-          </div>
+          <h3 className="text-2xl font-bold text-white">{totalCount.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Seluruh proyek sosmed</p>
         </div>
-        <div className="high-tech-card p-6 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-            <Globe className="w-6 h-6" />
+
+        {/* Proyek Aktif */}
+        <div className="high-tech-card p-5 border-purple-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <Activity className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proyek Aktif</span>
           </div>
-          <div>
-            <p className="text-xs text-slate-400 uppercase font-bold tracking-tighter">Klien Terdaftar</p>
-            <h3 className="text-2xl font-bold text-white">{clients.length}</h3>
+          <h3 className="text-2xl font-bold text-white">
+            {projects.filter(p => p.status === 'active').length}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-1">Status Ongoing</p>
+        </div>
+
+        {/* Proyek Selesai */}
+        <div className="high-tech-card p-5 border-emerald-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Proyek Selesai</span>
           </div>
+          <h3 className="text-2xl font-bold text-white">
+            {projects.filter(p => p.status === 'completed').length}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-1">Status Completed</p>
+        </div>
+
+        {/* Total Platform Aktif */}
+        <div className="high-tech-card p-5 border-indigo-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <Globe className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Platform Dikelola</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">
+            {projects.reduce((acc, p) => acc + (p.active_platforms ? p.active_platforms.split(',').filter(Boolean).length : 0), 0)}
+          </h3>
+          <p className="text-[10px] text-slate-400 mt-1">Total akun sosmed</p>
+        </div>
+
+        {/* Klien Terdaftar */}
+        <div className="high-tech-card p-5 border-amber-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Users className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Klien Terdaftar</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{clients.length}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Total klien sosmed</p>
+        </div>
+      </div>
+
+      {/* Section 2: Real-time Performance Metrics */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2 mt-8">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
+          Performa Keseluruhan
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {/* Total Reach */}
+        <div className="high-tech-card p-5 border-blue-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Reach</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.totalReach.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Jangkauan audiens global</p>
+        </div>
+
+        {/* Total Impressions */}
+        <div className="high-tech-card p-5 border-fuchsia-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20">
+              <Eye className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Impressions</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.totalImpressions.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Total tayangan global</p>
+        </div>
+
+        {/* Total Engagement */}
+        <div className="high-tech-card p-5 border-rose-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <Heart className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Engagement</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.totalEngagement.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Interaksi audiens global</p>
+        </div>
+
+        {/* Engagement Rate */}
+        <div className="high-tech-card p-5 border-amber-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Activity className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Eng. Rate</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.engagementRate.toFixed(2)}%</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Rata-rata interaksi</p>
         </div>
       </div>
 

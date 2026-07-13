@@ -9,8 +9,8 @@ import Link from 'next/link';
 // NOTE: Ideally import a charting library like recharts here
 // For this prototype, I will structure the UI to accommodate it.
 
-export default function ClientEmailPage() {
-  const { clientId } = useParams();
+export default function ClientEmailPage({ params }: { params: Promise<{ clientId: string }> }) {
+  const { clientId } = React.use(params);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
