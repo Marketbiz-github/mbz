@@ -484,7 +484,10 @@ export default function EmailPage() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Open</span>
               </div>
-              <h3 className="text-2xl font-bold text-white">{avgOpenRate}%</h3>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-white">{globalStats.totalOpens.toLocaleString()}</h3>
+                <span className="text-xs font-bold text-emerald-400">({avgOpenRate}%)</span>
+              </div>
               <p className="text-[10px] text-slate-400 mt-1">Across all campaigns</p>
             </div>
 
@@ -496,7 +499,10 @@ export default function EmailPage() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Click</span>
               </div>
-              <h3 className="text-2xl font-bold text-white">{avgClickRate}%</h3>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-white">{globalStats.totalClicks.toLocaleString()}</h3>
+                <span className="text-xs font-bold text-cyan-400">({avgClickRate}%)</span>
+              </div>
               <p className="text-[10px] text-slate-400 mt-1">Across all campaigns</p>
             </div>
 
@@ -508,7 +514,10 @@ export default function EmailPage() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Sent</span>
               </div>
-              <h3 className="text-2xl font-bold text-white">{totalSent.toLocaleString()}</h3>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-white">{totalSent.toLocaleString()}</h3>
+                <span className="text-xs font-bold text-purple-400">(100%)</span>
+              </div>
               <p className="text-[10px] text-slate-400 mt-1">Emails Sent (Global)</p>
             </div>
 
@@ -520,7 +529,10 @@ export default function EmailPage() {
                 </div>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Bounce</span>
               </div>
-              <h3 className="text-2xl font-bold text-amber-400">{avgBounceRate}%</h3>
+              <div className="flex items-baseline gap-2">
+                <h3 className="text-2xl font-bold text-white">{globalStats.totalBounces.toLocaleString()}</h3>
+                <span className="text-xs font-bold text-amber-400">({avgBounceRate}%)</span>
+              </div>
               <p className="text-[10px] text-slate-400 mt-1">Average bounce index</p>
             </div>
           </div>

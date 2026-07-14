@@ -7,7 +7,12 @@ import {
   Loader2,
   AlertTriangle,
   Eye,
-  ExternalLink
+  ExternalLink,
+  TrendingUp,
+  Heart,
+  Activity,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -82,6 +87,13 @@ export default function ClientSosmedPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalReach: 0,
+    totalImpressions: 0,
+    totalEngagement: 0,
+    engagementRate: 0
+  });
 
   // Pagination & Filters
   const [page, setPage] = useState(1);
@@ -145,6 +157,31 @@ export default function ClientSosmedPage() {
       setProjects(formatted);
       setTotalCount(count || 0);
       setTotalPages(Math.ceil((count || 0) / limit));
+
+      // Fetch performance stats
+      const { data: allClientProjects } = await supabase
+        .from('projects')
+        .select('id, services!inner(name)')
+        .eq('services.name', 'Sosmed')
+        .eq('client_id', clientInfo.id);
+
+      const projectIds = (allClientProjects || []).map(p => p.id);
+
+      if (projectIds.length > 0) {
+        const { data: reportData } = await supabase
+          .from('sosmed_reports')
+          .select('reach, impressions, engagement')
+          .in('project_id', projectIds);
+
+        const totalReach = (reportData || []).reduce((sum, r) => sum + (r.reach || 0), 0);
+        const totalImpressions = (reportData || []).reduce((sum, r) => sum + (r.impressions || 0), 0);
+        const totalEngagement = (reportData || []).reduce((sum, r) => sum + (r.engagement || 0), 0);
+        const engagementRate = totalReach > 0 ? (totalEngagement / totalReach) * 100 : 0;
+
+        setStats({ totalReach, totalImpressions, totalEngagement, engagementRate });
+      } else {
+        setStats({ totalReach: 0, totalImpressions: 0, totalEngagement: 0, engagementRate: 0 });
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to load Sosmed projects');
@@ -186,6 +223,88 @@ export default function ClientSosmedPage() {
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Campaigns</p>
           <h3 className="text-3xl font-extrabold text-emerald-400 mt-3 font-mono">{activeProjects}</h3>
           <p className="text-[10px] text-slate-500 mt-1">Currently running campaigns</p>
+        </div>
+      </div>
+
+      {/* Section 2: Real-time Performance Metrics */}
+      <div className="flex items-center justify-between border-b border-white/5 pb-2 mt-8">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
+          Performa Keseluruhan
+        </div>
+        <button 
+          onClick={() => setIsHelpModalOpen(true)}
+          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          Penjelasan Metrik
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {/* Total Reach */}
+        <div className="high-tech-card p-5 border-blue-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Reach</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white font-mono">{stats.totalReach.toLocaleString()}</h3>
+            {stats.totalImpressions > 0 && (
+              <span className="text-xs font-bold text-blue-400">
+                ({((stats.totalReach / stats.totalImpressions) * 100).toFixed(1)}%)
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1">Jangkauan audiens global</p>
+        </div>
+
+        {/* Total Impressions */}
+        <div className="high-tech-card p-5 border-fuchsia-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20">
+              <Eye className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Impressions</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white font-mono">{stats.totalImpressions.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-fuchsia-400">(100%)</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1">Total tayangan global</p>
+        </div>
+
+        {/* Total Engagement */}
+        <div className="high-tech-card p-5 border-rose-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
+              <Heart className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Engagement</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white font-mono">{stats.totalEngagement.toLocaleString()}</h3>
+            {stats.totalReach > 0 && (
+              <span className="text-xs font-bold text-rose-400">
+                ({((stats.totalEngagement / stats.totalReach) * 100).toFixed(1)}%)
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-500 mt-1">Interaksi audiens global</p>
+        </div>
+
+        {/* Engagement Rate */}
+        <div className="high-tech-card p-5 border-amber-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Activity className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Eng. Rate</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white font-mono">{stats.engagementRate.toFixed(2)}%</h3>
+          <p className="text-[10px] text-slate-500 mt-1">Rata-rata interaksi</p>
         </div>
       </div>
 
@@ -335,6 +454,72 @@ export default function ClientSosmedPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-emerald-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-emerald-400" />
+                Penjelasan Metrik Kinerja Sosmed
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">1. Total Reach (Unique Reach Rate %)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Reach</span> adalah jumlah akun unik yang melihat konten Anda minimal sekali.
+                  <br />
+                  <span className="font-bold text-blue-400">Persentase (%)</span> di samping angka Reach menunjukkan <span className="font-bold text-white">Unique Reach Rate</span> (Rasio Jangkauan Unik), dihitung dari <span className="italic text-slate-400">(Total Reach / Total Impressions) &times; 100</span>.
+                  <br />
+                  Ini menunjukkan seberapa efisien konten menjangkau penonton baru yang unik dibanding total tayangannya.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">2. Total Impressions (100%)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Impressions</span> adalah total berapa kali konten Anda ditayangkan/tampil di layar pengguna (bisa ditonton berulang kali oleh orang yang sama). Ini adalah metrik dasar (volume total) bernilai <span className="font-bold text-fuchsia-400">100%</span>.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">3. Total Engagement (Engagement Rate %)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Engagement</span> adalah total interaksi audiens terhadap konten (seperti Likes, Comments, Shares, dan Saves).
+                  <br />
+                  <span className="font-bold text-rose-400">Persentase (%)</span> di samping angka Engagement menunjukkan <span className="font-bold text-white">Engagement Rate (ER)</span>, dihitung dari <span className="italic text-slate-400">(Total Engagement / Total Reach) &times; 100</span>.
+                  <br />
+                  Metrik ini mengukur tingkat keaktifan/ketertarikan audiens unik yang telah dijangkau untuk berinteraksi dengan konten Anda.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">4. Eng. Rate (Rata-rata Interaksi Global)</p>
+                <p className="text-slate-400">
+                  Rata-rata persentase interaksi global dari seluruh proyek kampanye sosial media aktif yang sedang berjalan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

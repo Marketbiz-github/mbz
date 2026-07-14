@@ -163,7 +163,10 @@ export default function ClientEmailPage() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Open Rate</span>
           </div>
-          <h3 className="text-3xl font-extrabold text-cyan-400 font-mono">{avgOpenRate}%</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-extrabold text-cyan-400 font-mono">{globalStats.totalOpens.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-cyan-400">({avgOpenRate}%)</span>
+          </div>
           <p className="text-[10px] text-slate-500 mt-1">Across all campaigns</p>
         </div>
 
@@ -172,7 +175,10 @@ export default function ClientEmailPage() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Click Rate</span>
           </div>
-          <h3 className="text-3xl font-extrabold text-emerald-400 font-mono">{avgClickRate}%</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-extrabold text-emerald-400 font-mono">{globalStats.totalClicks.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-emerald-400">({avgClickRate}%)</span>
+          </div>
           <p className="text-[10px] text-slate-500 mt-1">Across all campaigns</p>
         </div>
 
@@ -181,7 +187,10 @@ export default function ClientEmailPage() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Sent</span>
           </div>
-          <h3 className="text-3xl font-extrabold text-purple-400 font-mono">{totalSent.toLocaleString()}</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-extrabold text-purple-400 font-mono">{totalSent.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-purple-400">(100%)</span>
+          </div>
           <p className="text-[10px] text-slate-500 mt-1">Audience reached</p>
         </div>
 
@@ -190,7 +199,10 @@ export default function ClientEmailPage() {
           <div className="flex items-center justify-between mb-4">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Avg Bounce Rate</span>
           </div>
-          <h3 className="text-3xl font-extrabold text-amber-400 font-mono">{avgBounceRate}%</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-3xl font-extrabold text-amber-400 font-mono">{globalStats.totalBounces.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-amber-400">({avgBounceRate}%)</span>
+          </div>
           <p className="text-[10px] text-slate-500 mt-1">Average bounce index</p>
         </div>
       </div>
