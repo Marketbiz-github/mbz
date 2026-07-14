@@ -16,7 +16,8 @@ import {
   Share2,
   Users,
   TrendingUp,
-  Heart
+  Heart,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -199,7 +200,7 @@ export default function SosmedOverviewPage() {
   const [newProjName, setNewProjName] = useState('');
   const [newProjDesc, setNewProjDesc] = useState('');
   const [newProjUrl, setNewProjUrl] = useState('');
-  const [newProjPlatforms, setNewProjPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
+  const [newProjPlatforms, setNewProjPlatforms] = useState<string[]>([]);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -209,6 +210,7 @@ export default function SosmedOverviewPage() {
   const [editStatus, setEditStatus] = useState('active');
   const [editPlatforms, setEditPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
   const [saving, setSaving] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   // Global Performance Stats
   const [stats, setStats] = useState({
@@ -358,7 +360,7 @@ export default function SosmedOverviewPage() {
       setNewProjName('');
       setNewProjDesc('');
       setNewProjUrl('');
-      setNewProjPlatforms(['instagram', 'tiktok', 'linkedin', 'facebook']);
+      setNewProjPlatforms([]);
       fetchData();
     } catch (err: any) {
       alert(err.message);
@@ -522,6 +524,13 @@ export default function SosmedOverviewPage() {
           <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
           Performa Keseluruhan
         </div>
+        <button 
+          onClick={() => setIsHelpModalOpen(true)}
+          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          Penjelasan Metrik
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -533,7 +542,14 @@ export default function SosmedOverviewPage() {
             </div>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Reach</span>
           </div>
-          <h3 className="text-2xl font-bold text-white">{stats.totalReach.toLocaleString()}</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">{stats.totalReach.toLocaleString()}</h3>
+            {stats.totalImpressions > 0 && (
+              <span className="text-xs font-bold text-blue-400">
+                ({((stats.totalReach / stats.totalImpressions) * 100).toFixed(1)}%)
+              </span>
+            )}
+          </div>
           <p className="text-[10px] text-slate-400 mt-1">Jangkauan audiens global</p>
         </div>
 
@@ -545,7 +561,10 @@ export default function SosmedOverviewPage() {
             </div>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Impressions</span>
           </div>
-          <h3 className="text-2xl font-bold text-white">{stats.totalImpressions.toLocaleString()}</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">{stats.totalImpressions.toLocaleString()}</h3>
+            <span className="text-xs font-bold text-fuchsia-400">(100%)</span>
+          </div>
           <p className="text-[10px] text-slate-400 mt-1">Total tayangan global</p>
         </div>
 
@@ -557,7 +576,14 @@ export default function SosmedOverviewPage() {
             </div>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Engagement</span>
           </div>
-          <h3 className="text-2xl font-bold text-white">{stats.totalEngagement.toLocaleString()}</h3>
+          <div className="flex items-baseline gap-2">
+            <h3 className="text-2xl font-bold text-white">{stats.totalEngagement.toLocaleString()}</h3>
+            {stats.totalReach > 0 && (
+              <span className="text-xs font-bold text-rose-400">
+                ({((stats.totalEngagement / stats.totalReach) * 100).toFixed(1)}%)
+              </span>
+            )}
+          </div>
           <p className="text-[10px] text-slate-400 mt-1">Interaksi audiens global</p>
         </div>
 
@@ -753,7 +779,7 @@ export default function SosmedOverviewPage() {
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Pilih Klien</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Pilih Klien <span className="text-red-500">*</span></label>
                 <SearchableSelect 
                   options={clients} 
                   value={newProjClientId} 
@@ -762,7 +788,7 @@ export default function SosmedOverviewPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   value={newProjName}
@@ -774,7 +800,7 @@ export default function SosmedOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau <span className="text-red-500">*</span></label>
                 <div className="grid grid-cols-2 gap-2">
                   {platforms.map(p => {
                     const isChecked = newProjPlatforms.includes(p.id);
@@ -808,7 +834,7 @@ export default function SosmedOverviewPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL <span className="text-red-500">*</span></label>
                 <input 
                   type="url" 
                   value={newProjUrl}
@@ -857,7 +883,7 @@ export default function SosmedOverviewPage() {
 
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Nama Proyek <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   value={editName}
@@ -869,7 +895,7 @@ export default function SosmedOverviewPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Platform Sosmed Dipantau <span className="text-red-500">*</span></label>
                 <div className="grid grid-cols-2 gap-2">
                   {platforms.map(p => {
                     const isChecked = editPlatforms.includes(p.id);
@@ -893,7 +919,7 @@ export default function SosmedOverviewPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL <span className="text-red-500">*</span></label>
                 <input 
                   type="url" 
                   value={editUrl}
@@ -928,6 +954,72 @@ export default function SosmedOverviewPage() {
               SIMPAN PERUBAHAN
             </button>
           </form>
+        </div>
+      )}
+      {/* Help Modal */}
+      {isHelpModalOpen && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="high-tech-card p-6 max-w-lg w-full space-y-6 relative border-emerald-500/20 bg-slate-950/95 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-base font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-emerald-400" />
+                Penjelasan Metrik Kinerja Sosmed
+              </h3>
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">1. Total Reach (Unique Reach Rate %)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Reach</span> adalah jumlah akun unik yang melihat konten Anda minimal sekali.
+                  <br />
+                  <span className="font-bold text-blue-400">Persentase (%)</span> di samping angka Reach menunjukkan <span className="font-bold text-white">Unique Reach Rate</span> (Rasio Jangkauan Unik), dihitung dari <span className="italic text-slate-400">(Total Reach / Total Impressions) &times; 100</span>.
+                  <br />
+                  Ini menunjukkan seberapa efisien konten menjangkau penonton baru yang unik dibanding total tayangannya.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">2. Total Impressions (100%)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Impressions</span> adalah total berapa kali konten Anda ditayangkan/tampil di layar pengguna (bisa ditonton berulang kali oleh orang yang sama). Ini adalah metrik dasar (volume total) bernilai <span className="font-bold text-fuchsia-400">100%</span>.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">3. Total Engagement (Engagement Rate %)</p>
+                <p className="text-slate-400">
+                  <span className="font-bold text-white">Engagement</span> adalah total interaksi audiens terhadap konten (seperti Likes, Comments, Shares, dan Saves).
+                  <br />
+                  <span className="font-bold text-rose-400">Persentase (%)</span> di samping angka Engagement menunjukkan <span className="font-bold text-white">Engagement Rate (ER)</span>, dihitung dari <span className="italic text-slate-400">(Total Engagement / Total Reach) &times; 100</span>.
+                  <br />
+                  Metrik ini mengukur tingkat keaktifan/ketertarikan audiens unik yang telah dijangkau untuk berinteraksi dengan konten Anda.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-bold text-emerald-400">4. Eng. Rate (Rata-rata Interaksi Global)</p>
+                <p className="text-slate-400">
+                  Rata-rata persentase interaksi global dari seluruh proyek kampanye sosial media aktif yang sedang berjalan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/10">
+              <button 
+                onClick={() => setIsHelpModalOpen(false)}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Pahami & Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
