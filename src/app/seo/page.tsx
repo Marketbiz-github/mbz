@@ -491,7 +491,7 @@ export default function SEOOverviewPage() {
         {/* Organic Sessions */}
         <div className="high-tech-card p-6 border-purple-500/20 bg-slate-900/30">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Organic Sessions</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Sessions</p>
             {aggregatedGA.loading && <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />}
           </div>
           <h3 className="text-3xl font-extrabold text-purple-400 mt-3 font-mono">
@@ -873,7 +873,7 @@ export default function SEOOverviewPage() {
               </div>
 
               <div className="space-y-1">
-                <p className="font-bold text-cyan-400">4. Organic Sessions (Gabungan)</p>
+                <p className="font-bold text-cyan-400">4. Total Sessions (Gabungan)</p>
                 <p className="text-slate-400">Akumulasi total sesi kunjungan dari mesin pencari organik (*Organic Search*) di seluruh proyek website dalam 30 hari terakhir.</p>
               </div>
 

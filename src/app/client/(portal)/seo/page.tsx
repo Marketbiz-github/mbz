@@ -221,7 +221,7 @@ export default function SEOOverviewPage() {
 
         <div className="high-tech-card p-6 border-purple-500/20 bg-slate-900/30">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Organic Sessions</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Sessions</p>
             {aggregatedGA.loading && <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />}
           </div>
           <h3 className="text-3xl font-extrabold text-purple-400 mt-3 font-mono">
@@ -417,7 +417,7 @@ export default function SEOOverviewPage() {
               </div>
 
               <div className="space-y-1">
-                <p className="font-bold text-cyan-400">3. Organic Sessions (30 Hari Terakhir)</p>
+                <p className="font-bold text-cyan-400">3. Total Sessions (30 Hari Terakhir)</p>
                 <p className="text-slate-400">Total interaksi kunjungan pengguna dari pencarian organik selama 30 hari terakhir. Metrik ini krusial untuk mengukur keberhasilan SEO.</p>
               </div>
 

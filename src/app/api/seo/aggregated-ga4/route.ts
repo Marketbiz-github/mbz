@@ -119,16 +119,7 @@ export async function GET(request: NextRequest) {
                   { name: 'screenPageViews' },
                   { name: 'activeUsers' },
                   { name: 'bounceRate' }
-                ],
-                dimensionFilter: {
-                  filter: {
-                    fieldName: 'sessionDefaultChannelGrouping',
-                    stringFilter: {
-                      matchType: 'EXACT',
-                      value: 'Organic Search'
-                    }
-                  }
-                }
+                ]
               }),
             }
           );

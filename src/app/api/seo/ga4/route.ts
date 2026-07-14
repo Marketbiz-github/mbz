@@ -100,17 +100,20 @@ export async function GET(request: NextRequest) {
         activeUsers = parseInt(rtData.rows?.[0]?.metricValues?.[0]?.value || '0');
       }
 
-      // 2. Run Historical Report (Last 30 Days)
-      const historicalRes = await fetch(
-        `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
-        {
+      // 2. Run Historical, Traffic, Demographics, and Tech Reports concurrently
+      const dateRanges = [{ startDate: range, endDate: 'today' }];
+      const reqHeaders = {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      };
+      const apiEndpoint = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+
+      const [historicalRes, trafficRes, demographicsRes, techRes] = await Promise.all([
+        fetch(apiEndpoint, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
+          headers: reqHeaders,
           body: JSON.stringify({
-            dateRanges: [{ startDate: range, endDate: 'today' }],
+            dateRanges,
             dimensions: [{ name: 'date' }],
             metrics: [
               { name: 'sessions' },
@@ -118,27 +121,54 @@ export async function GET(request: NextRequest) {
               { name: 'activeUsers' },
               { name: 'bounceRate' },
               { name: 'averageSessionDuration' }
-            ],
-            // Organic search default grouping channel filter
-            dimensionFilter: {
-              filter: {
-                fieldName: 'sessionDefaultChannelGrouping',
-                stringFilter: {
-                  matchType: 'EXACT',
-                  value: 'Organic Search'
-                }
-              }
-            }
+            ]
           }),
-        }
-      );
+        }),
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({
+            dateRanges,
+            dimensions: [{ name: 'sessionDefaultChannelGrouping' }],
+            metrics: [
+              { name: 'sessions' },
+              { name: 'activeUsers' },
+              { name: 'bounceRate' },
+              { name: 'averageSessionDuration' }
+            ]
+          }),
+        }),
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({
+            dateRanges,
+            dimensions: [{ name: 'country' }, { name: 'city' }],
+            metrics: [{ name: 'activeUsers' }]
+          }),
+        }),
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({
+            dateRanges,
+            dimensions: [{ name: 'deviceCategory' }, { name: 'operatingSystem' }, { name: 'browser' }],
+            metrics: [{ name: 'activeUsers' }]
+          }),
+        })
+      ]);
 
       if (!historicalRes.ok) {
         const histErr = await historicalRes.text();
         throw new Error(`GA4 historical report failed: ${histErr}`);
       }
 
-      const histData = await historicalRes.json();
+      const [histData, trafficData, demoData, techData] = await Promise.all([
+        historicalRes.json(),
+        trafficRes.ok ? trafficRes.json() : Promise.resolve({ rows: [] }),
+        demographicsRes.ok ? demographicsRes.json() : Promise.resolve({ rows: [] }),
+        techRes.ok ? techRes.json() : Promise.resolve({ rows: [] })
+      ]);
 
       // Process rows to aggregate stats and make chart data
       let totalSessions = 0;
@@ -180,8 +210,61 @@ export async function GET(request: NextRequest) {
       // Sort chart data by date chronological
       chartRows.reverse();
 
+      // Parse Traffic
+      const trafficAcquisition = (trafficData.rows || []).map((r: any) => ({
+        channel: r.dimensionValues[0].value,
+        sessions: parseInt(r.metricValues[0].value || '0'),
+        users: parseInt(r.metricValues[1].value || '0'),
+        bounceRate: parseFloat(r.metricValues[2].value || '0') * 100,
+        duration: parseFloat(r.metricValues[3].value || '0')
+      })).sort((a: any, b: any) => b.sessions - a.sessions);
+
+      // Parse Demographics
+      const countryMap: Record<string, number> = {};
+      const cityMap: Record<string, number> = {};
+      (demoData.rows || []).forEach((r: any) => {
+        const country = r.dimensionValues[0].value;
+        const city = r.dimensionValues[1].value;
+        const users = parseInt(r.metricValues[0].value || '0');
+        
+        countryMap[country] = (countryMap[country] || 0) + users;
+        if (city !== '(not set)') {
+          cityMap[city] = (cityMap[city] || 0) + users;
+        }
+      });
+
+      const demographics = {
+        countries: Object.entries(countryMap).map(([country, users]) => ({ country, users })).sort((a, b) => b.users - a.users),
+        cities: Object.entries(cityMap).map(([city, users]) => ({ city, users })).sort((a, b) => b.users - a.users)
+      };
+
+      // Parse Tech
+      const deviceMap: Record<string, number> = {};
+      const osMap: Record<string, number> = {};
+      const browserMap: Record<string, number> = {};
+      
+      (techData.rows || []).forEach((r: any) => {
+        const device = r.dimensionValues[0].value;
+        const os = r.dimensionValues[1].value;
+        const browser = r.dimensionValues[2].value;
+        const users = parseInt(r.metricValues[0].value || '0');
+        
+        deviceMap[device] = (deviceMap[device] || 0) + users;
+        osMap[os] = (osMap[os] || 0) + users;
+        browserMap[browser] = (browserMap[browser] || 0) + users;
+      });
+
+      const tech = {
+        devices: Object.entries(deviceMap).map(([device, users]) => ({ device, users })).sort((a, b) => b.users - a.users),
+        os: Object.entries(osMap).map(([os, users]) => ({ os, users })).sort((a, b) => b.users - a.users),
+        browsers: Object.entries(browserMap).map(([browser, users]) => ({ browser, users })).sort((a, b) => b.users - a.users)
+      };
+
       return NextResponse.json({
         isDemo: false,
+        trafficAcquisition,
+        demographics,
+        tech,
         realtime: {
           activeUsers: activeUsers,
           pageViews: Math.floor(activeUsers * 1.5)
@@ -213,6 +296,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         isDemo: true,
         apiError: apiErr.message,
+        trafficAcquisition: [],
+        demographics: { countries: [], cities: [] },
+        tech: { devices: [], os: [], browsers: [] },
         realtime: {
           activeUsers: 0,
           pageViews: 0,

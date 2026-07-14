@@ -34,8 +34,13 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  Legend 
+  Legend,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
+
+const COLORS = ['#00F2EA', '#8b5cf6', '#3b82f6', '#ec4899', '#f59e0b', '#10b981'];
 
 interface Project {
   id: string;
@@ -66,6 +71,9 @@ interface GAData {
   isDemo: boolean;
   credsMissing?: boolean;
   propertyMissing?: boolean;
+  trafficAcquisition: any[];
+  demographics: { countries: any[], cities: any[] };
+  tech: { devices: any[], os: any[], browsers: any[] };
   realtime: {
     activeUsers: number;
     pageViews: number;
@@ -230,7 +238,7 @@ export default function SEODetailPage({ params }: { params: Promise<{ id: string
       ["Website URL", project.website_url],
       ["GA4 Property ID", project.ga_property_id || "N/A"],
       ["Realtime Active Users", gaData.realtime.activeUsers],
-      ["Organic Sessions (30d)", gaData.historical.sessions],
+      ["Total Sessions (30d)", gaData.historical.sessions],
       ["Page Views (30d)", gaData.historical.pageViews],
       ["Unique Users (30d)", gaData.historical.users],
       ["Organic Traffic Share", gaData.historical.organicTraffic],
@@ -452,7 +460,7 @@ export default function SEODetailPage({ params }: { params: Promise<{ id: string
 
               {/* Organic Traffic */}
               <div className="high-tech-card p-5 border-white/5 bg-slate-900/30 flex flex-col justify-between min-h-[110px]">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Organic Sessions</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Sessions</span>
                 <h3 className="text-3xl font-extrabold text-white mt-3 font-mono">
                   {gaData.historical.sessions.toLocaleString()}
                 </h3>
@@ -539,6 +547,102 @@ export default function SEODetailPage({ params }: { params: Promise<{ id: string
               </div>
 
               </div>
+
+              {/* Traffic, Demographics & Tech Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-8">
+                {/* Traffic Acquisition */}
+                <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col min-h-[300px]">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Traffic Acquisition</h4>
+                  <div className="flex-1 space-y-4">
+                    {gaData.trafficAcquisition?.slice(0, 5).map((t, idx) => (
+                      <div key={idx} className="flex flex-col gap-2">
+                        <div className="flex justify-between text-xs text-slate-300">
+                          <span className="font-bold">{t.channel}</span>
+                          <span className="font-mono">{t.sessions.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-1000"
+                            style={{ 
+                              width: `${Math.max(2, (t.sessions / Math.max(1, gaData.historical.sessions)) * 100)}%`,
+                              backgroundColor: COLORS[idx % COLORS.length]
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                    {(!gaData.trafficAcquisition || gaData.trafficAcquisition.length === 0) && (
+                      <div className="text-xs text-slate-500 italic py-4 text-center">No traffic data available</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Demographics */}
+                <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col min-h-[300px]">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-6">Top Countries</h4>
+                  <div className="flex-1 space-y-4">
+                    {gaData.demographics?.countries?.slice(0, 5).map((c: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center text-sm border-b border-white/5 pb-2 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-md bg-slate-800 flex items-center justify-center text-[10px] text-slate-400 font-bold border border-white/5">
+                            {idx + 1}
+                          </div>
+                          <span className="text-slate-300">{c.country}</span>
+                        </div>
+                        <span className="text-emerald-400 font-mono font-bold">{c.users.toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {(!gaData.demographics?.countries || gaData.demographics.countries.length === 0) && (
+                      <div className="text-xs text-slate-500 italic py-4 text-center">No demographics data available</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tech (Device) */}
+                <div className="high-tech-card p-6 border-white/5 bg-slate-900/20 flex flex-col min-h-[300px]">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Device Category</h4>
+                  <div className="flex-1 min-h-[200px] flex items-center justify-center relative">
+                    {gaData.tech?.devices && gaData.tech.devices.length > 0 ? (
+                      <>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={gaData.tech.devices}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="users"
+                              nameKey="device"
+                            >
+                              {gaData.tech.devices.map((entry: any, index: number) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#090d16', border: '1px solid #ffffff10', borderRadius: '8px', color: '#fff', fontSize: 11 }}
+                              itemStyle={{ color: '#fff' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        {/* Overlay legend */}
+                        <div className="absolute top-4 right-0 flex flex-col gap-2">
+                          {gaData.tech.devices.slice(0,3).map((d: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                              {d.device}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-slate-500 italic text-center">No tech data available</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
             </div>
             )}
 
