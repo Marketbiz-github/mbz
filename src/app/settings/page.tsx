@@ -47,6 +47,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnosticMsg, setDiagnosticMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Settings states
   const [settings, setSettings] = useState<SystemSettingsData>({
@@ -97,11 +100,10 @@ export default function SettingsPage() {
     setSaveSuccess(false);
     setError(null);
     try {
-      const newSettings = { ...settings, ...updatedFields };
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSettings)
+        body: JSON.stringify(updatedFields)
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -117,6 +119,26 @@ export default function SettingsPage() {
       setError(err.message || 'Gagal menyimpan pengaturan');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runDiagnostics = async () => {
+    setDiagnosing(true);
+    setDiagnosticMsg(null);
+    try {
+      const res = await fetch('/api/settings/diagnostics');
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal menjalankan diagnostik');
+      }
+      
+      setDiagnosticMsg({ type: 'success', text: 'Semua sistem terhubung dan berjalan optimal' });
+    } catch (err: any) {
+      setDiagnosticMsg({ type: 'error', text: err.message || 'Sistem bermasalah' });
+    } finally {
+      setDiagnosing(false);
+      // Don't auto hide message so they can read the error
     }
   };
 
@@ -216,9 +238,26 @@ export default function SettingsPage() {
               />
               <StatusItem label="Latensi Database" status="15ms" color="text-emerald-400" />
             </div>
-            <button className="w-full mt-6 py-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer">
-              <RefreshCw className="w-3 h-3 animate-spin-slow" /> JALANKAN DIAGNOSTIK
+            <button 
+              onClick={runDiagnostics}
+              disabled={diagnosing}
+              className="w-full mt-6 py-2.5 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={cn("w-3 h-3", diagnosing && "animate-spin")} /> 
+              {diagnosing ? "MENJALANKAN..." : "JALANKAN DIAGNOSTIK"}
             </button>
+            
+            {diagnosticMsg && (
+              <div className={cn(
+                "mt-4 p-3 rounded-lg text-xs font-medium flex items-center gap-2",
+                diagnosticMsg.type === 'success' 
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+              )}>
+                {diagnosticMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                {diagnosticMsg.text}
+              </div>
+            )}
           </div>
 
           <div className="high-tech-card p-6">
@@ -363,10 +402,10 @@ function APIIntegrations({ settings, onSave, saving }: ComponentProps) {
                 onChange={(e) => setProvider(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500/50"
               >
-                <option value="openai">OpenAI (Default)</option>
-                <option value="gemini">Google Gemini</option>
-                <option value="openrouter">OpenRouter (Flexible)</option>
-                <option value="custom">Custom Webhook / API</option>
+                <option value="openai" className="bg-slate-950 text-white">OpenAI (Default)</option>
+                <option value="gemini" className="bg-slate-950 text-white">Google Gemini</option>
+                <option value="openrouter" className="bg-slate-950 text-white">OpenRouter (Flexible)</option>
+                <option value="custom" className="bg-slate-950 text-white">Custom Webhook / API</option>
               </select>
             </div>
 
