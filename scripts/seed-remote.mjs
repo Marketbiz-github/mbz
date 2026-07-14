@@ -2,21 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import ws from 'ws';
+import { loadEnv } from './env-loader.mjs';
 
-dotenv.config({ path: '.env.local' });
+const { supabaseUrl, supabaseServiceKey, isProduction } = loadEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Error: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local');
-  process.exit(1);
-}
 
 global.WebSocket = ws;
 
@@ -29,13 +21,20 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 async function runSeed() {
   console.log('🚀 Starting remote seed...');
 
-  const seedFiles = [
-    '01_users.sql',
-    '02_clients.sql',
-    '03_email_campaigns.sql',
-    '04_services.sql',
-    '05_prd_seed.sql'
-  ];
+  // Production: only seed admin user + services
+  // Staging/Local: seed all dummy data
+  const seedFiles = isProduction
+    ? ['seed_production.sql']
+    : [
+        '01_users.sql',
+        '02_clients.sql',
+        '03_email_campaigns.sql',
+        '04_services.sql',
+        '05_prd_seed.sql'
+      ];
+
+  console.log(`📋 Seed files: ${seedFiles.join(', ')}`);
+  console.log('');
 
   for (const fileName of seedFiles) {
     console.log(`📄 Executing ${fileName}...`);

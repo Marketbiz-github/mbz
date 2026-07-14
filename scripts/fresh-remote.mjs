@@ -2,21 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import ws from 'ws';
+import { loadEnv, confirmProduction } from './env-loader.mjs';
 
-dotenv.config({ path: '.env.local' });
+const { supabaseUrl, supabaseServiceKey, isProduction } = loadEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Error: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in .env.local');
-  process.exit(1);
-}
 
 global.WebSocket = ws;
 
@@ -31,13 +23,6 @@ const SEED_USER_IDS = [
   'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33', // technova
   'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44', // greenlife
 ];
-
-const SEED_USER_IDS_SQL = `ARRAY[
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
-  'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
-  'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
-  'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44'
-]::uuid[]`;
 
 const RESET_SQL = `
 DO $$
@@ -60,12 +45,16 @@ BEGIN
 END $$;
 `;
 
-const SEED_FILES = [
+const SEED_FILES_STAGING = [
   '01_users.sql',
   '02_clients.sql',
   '03_email_campaigns.sql',
   '04_services.sql',
   '05_prd_seed.sql',
+];
+
+const SEED_FILES_PRODUCTION = [
+  'seed_production.sql',
 ];
 
 async function execSql(sql, label) {
@@ -89,6 +78,11 @@ async function execSql(sql, label) {
 }
 
 async function main() {
+  // Safety guard for production
+  if (isProduction) {
+    await confirmProduction('FRESH RESET the database');
+  }
+
   console.log('🗑️  Resetting remote database...');
 
   try {
@@ -99,8 +93,12 @@ async function main() {
     process.exit(1);
   }
 
+  const seedFiles = isProduction ? SEED_FILES_PRODUCTION : SEED_FILES_STAGING;
+
   console.log('\n🚀 Re-seeding database...');
-  for (const fileName of SEED_FILES) {
+  console.log(`📋 Seed files: ${seedFiles.join(', ')}\n`);
+
+  for (const fileName of seedFiles) {
     console.log(`📄 Executing ${fileName}...`);
     const filePath = path.join(__dirname, '../supabase/seed', fileName);
     const sql = fs.readFileSync(filePath, 'utf8');

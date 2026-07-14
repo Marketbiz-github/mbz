@@ -7,9 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "npx supabase db push",
+    "db:migrate": "node scripts/migrate-remote.mjs",
+    "db:migrate:staging": "node scripts/migrate-remote.mjs --env staging",
+    "db:migrate:production": "node scripts/migrate-remote.mjs --env production",
     "db:seed": "node scripts/seed-remote.mjs",
-    "db:fresh": "node scripts/fresh-remote.mjs"
+    "db:seed:staging": "node scripts/seed-remote.mjs --env staging",
+    "db:seed:production": "node scripts/seed-remote.mjs --env production",
+    "db:fresh": "node scripts/fresh-remote.mjs",
+    "db:fresh:staging": "node scripts/fresh-remote.mjs --env staging"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
