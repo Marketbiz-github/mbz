@@ -1,9 +1,9 @@
 # PRD — MarketBiz Client Reporting Dashboard
 
-> **Versi:** 1.2  
-> **Tanggal:** 2026-06-29  
+> **Versi:** 1.3  
+> **Tanggal:** 2026-07-14  
 > **Author:** MarketBiz Engineering  
-> **Status:** Final — Updated with fully implemented features (SEO GA4, dynamic settings, team management, and login designs)
+> **Status:** Final — Updated with multi-environment setup, GSC integration, AI Copy Gen, and Archived project status.
 
 ---
 
@@ -74,7 +74,7 @@ MarketBiz Dashboard adalah platform pelaporan real-time berbasis web yang diguna
 > - ~~Email Platform~~ → **Email Blast**
 > - ~~CRM Clients~~ → **Client** (Route diubah dari `/crm` menjadi `/client`)
 > - ~~Social Scheduler~~ → dihapus dari sidebar
-> - ~~AI Copy Gen~~ → dihapus dari sidebar
+> - **AI Copy Gen** → Tersedia di `/ai-generator` (fitur AI untuk copywriting)
 > - **SEO** → **BARU** — ditambahkan sebagai menu utama
 > - **WA Blast** → **BARU** — ditambahkan sebagai menu utama (terpisah dari Email Blast)
 
@@ -179,11 +179,12 @@ Metrik yang ditrack per **project**:
 > **Fitur yang sudah diimplementasikan:**
 > - **Realtime Report API**: Data up-to-the-minute (active users, pageviews real-time)
 > - **Core Report API**: Data historis (sessions, users, pageviews, bounce rate, dll.)
+> - **Google Search Console (GSC) API**: Data performa organik (top keywords dan top pages) yang disinkronkan secara langsung.
 > - **Penyimpanan Kredensial Dinamis**: Kredensial Google Service Account (Email & Private Key) disimpan dengan aman di database (`system_settings`) bukan di file `.env.local` agar dapat diubah dinamis oleh Admin.
-> - **Tutorial Pengaturan Interaktif**: Jika GA4 belum terhubung, halaman detail proyek menampilkan panduan langkah demi langkah beserta salinan email Service Account dan tombol pratinjau (mode demo).
+> - **Tutorial Pengaturan Interaktif**: Jika GA4/GSC belum terhubung, halaman detail proyek menampilkan panduan langkah demi langkah beserta salinan email Service Account dan tombol pratinjau (mode demo).
 >
 > **Syarat:**
-> - Setiap client yang ambil service SEO harus share akses Google Analytics property-nya
+> - Setiap client yang ambil service SEO harus share akses Google Analytics dan GSC property-nya
 > - Admin menyimpan `GA4 Property ID` pada level Project
 > - Sistem menggunakan Google Cloud Service Account untuk autentikasi
 >
@@ -288,7 +289,7 @@ CREATE TABLE public.projects (
   service_id UUID REFERENCES public.services(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'on_hold', 'cancelled')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed', 'on_hold', 'cancelled', 'archived')),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -369,7 +370,7 @@ CREATE TABLE public.seo_reports (
   organic_traffic INTEGER DEFAULT 0,
   top_keywords JSONB DEFAULT '[]',
   top_pages JSONB DEFAULT '[]',
-  source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'ga4_api')),
+  source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'ga4_api', 'gsc_api')),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ```
@@ -580,11 +581,12 @@ profiles (user)
 | Aspek | Requirement |
 |-------|-------------|
 | **Tech Stack** | Next.js, Supabase (PostgreSQL + Auth), TailwindCSS v4, Recharts |
+| **Environment**| Dukungan multi-environment (Staging, Production) dengan file terpisah (`.env.staging`, `.env.production`) |
 | **Auth** | Supabase Auth + RLS (Row Level Security) |
 | **Hosting** | Vercel |
 | **Responsif** | Mobile-first, responsive sidebar |
 | **Dark Mode** | Default dark theme (sudah ada) |
-| **SEO API** | Google Analytics Data API v1 (gratis, quota-based) |
+| **SEO API** | Google Analytics Data API v1 & Google Search Console API |
 | **Download** | PDF & Excel export untuk semua laporan (admin + client) |
 | **Notifikasi** | In-app notifications di client dashboard (bell icon + halaman) |
 | **Performance** | < 3s initial load, realtime updates via Supabase realtime |
@@ -602,6 +604,7 @@ profiles (user)
 | **Fase 4** | Integrasi Google Analytics API untuk SEO, fitur download report (PDF/Excel) untuk admin & client | **SELESAI** |
 | **Fase 5** | Web Development project tracking, polish & optimasi | **SELESAI** |
 | **Fase 6** | Fitur Sistem Setting dinamis database-backed, Manajemen Tim Admin (tambah, edit, nonaktifkan), serta Login blocker untuk admin tidak aktif | **SELESAI** |
+| **Fase 7** | Multi-environment setup, integrasi Google Search Console (GSC) API, fitur pengarsipan (Archived), dan modul AI Generator | **SELESAI** |
 
 ---
 
