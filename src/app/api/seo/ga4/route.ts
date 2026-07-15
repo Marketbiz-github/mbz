@@ -100,15 +100,37 @@ export async function GET(request: NextRequest) {
         activeUsers = parseInt(rtData.rows?.[0]?.metricValues?.[0]?.value || '0');
       }
 
-      // 2. Run Historical, Traffic, Demographics, and Tech Reports concurrently
-      const dateRanges = [{ startDate: range, endDate: 'today' }];
+      // 2. Calculate Date Ranges for Comparison
+      let actualRange = range;
+      let prevStartDate = '60daysAgo';
+      let prevEndDate = '31daysAgo';
+      
+      if (range === 'all_time') {
+        actualRange = '2020-01-01'; // GA4 didn't exist before 2020
+        prevStartDate = '2015-01-01';
+        prevEndDate = '2019-12-31';
+      } else if (range === '7daysAgo') {
+        prevStartDate = '14daysAgo';
+        prevEndDate = '8daysAgo';
+      } else if (range === 'today') {
+        prevStartDate = 'yesterday';
+        prevEndDate = 'yesterday';
+      }
+
+      const dateRanges = [{ startDate: actualRange, endDate: 'today' }];
+      const dateRangesWithComparison = [
+        { startDate: actualRange, endDate: 'today' },
+        { startDate: prevStartDate, endDate: prevEndDate }
+      ];
+
       const reqHeaders = {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       };
       const apiEndpoint = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
 
-      const [historicalRes, trafficRes, demographicsRes, techRes] = await Promise.all([
+      // 3. Run Reports concurrently
+      const [historicalRes, trafficRes, demographicsRes, techRes, topPagesRes] = await Promise.all([
         fetch(apiEndpoint, {
           method: 'POST',
           headers: reqHeaders,
@@ -155,6 +177,16 @@ export async function GET(request: NextRequest) {
             dimensions: [{ name: 'deviceCategory' }, { name: 'operatingSystem' }, { name: 'browser' }],
             metrics: [{ name: 'activeUsers' }]
           }),
+        }),
+        fetch(apiEndpoint, {
+          method: 'POST',
+          headers: reqHeaders,
+          body: JSON.stringify({
+            dateRanges: dateRangesWithComparison,
+            dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+            metrics: [{ name: 'screenPageViews' }],
+            limit: 50
+          }),
         })
       ]);
 
@@ -163,11 +195,12 @@ export async function GET(request: NextRequest) {
         throw new Error(`GA4 historical report failed: ${histErr}`);
       }
 
-      const [histData, trafficData, demoData, techData] = await Promise.all([
+      const [histData, trafficData, demoData, techData, topPagesData] = await Promise.all([
         historicalRes.json(),
         trafficRes.ok ? trafficRes.json() : Promise.resolve({ rows: [] }),
         demographicsRes.ok ? demographicsRes.json() : Promise.resolve({ rows: [] }),
-        techRes.ok ? techRes.json() : Promise.resolve({ rows: [] })
+        techRes.ok ? techRes.json() : Promise.resolve({ rows: [] }),
+        topPagesRes.ok ? topPagesRes.json() : Promise.resolve({ rows: [] })
       ]);
 
       // Process rows to aggregate stats and make chart data
@@ -260,6 +293,36 @@ export async function GET(request: NextRequest) {
         browsers: Object.entries(browserMap).map(([browser, users]) => ({ browser, users })).sort((a, b) => b.users - a.users)
       };
 
+      // Parse Top Pages
+      const topPages: any[] = [];
+      (topPagesData.rows || []).forEach((r: any) => {
+        const title = r.dimensionValues[0].value;
+        const path = r.dimensionValues[1].value;
+        const currentViews = parseInt(r.metricValues[0].value || '0');
+        const prevViews = parseInt(r.metricValues[1]?.value || '0'); // metric for previous date range
+        
+        let rate = '0%';
+        let isUp = true;
+        if (prevViews === 0 && currentViews > 0) {
+           rate = '100%';
+           isUp = true;
+        } else if (prevViews > 0) {
+           const change = ((currentViews - prevViews) / prevViews) * 100;
+           isUp = change >= 0;
+           rate = Math.abs(change).toFixed(1) + '%';
+        }
+        
+        topPages.push({
+          title: title || path,
+          path,
+          views: currentViews,
+          rate,
+          isUp
+        });
+      });
+      // Sort by current views, limit to top 10
+      topPages.sort((a, b) => b.views - a.views);
+
       return NextResponse.json({
         isDemo: false,
         trafficAcquisition,
@@ -277,18 +340,8 @@ export async function GET(request: NextRequest) {
           avgSessionDuration: avgDuration,
           organicTraffic: totalSessions, // Organic traffic corresponds to filtered organic sessions
           chart: chartRows,
-          keywords: [
-            { keyword: 'digital marketing agency', rank: 3, clicks: 120 },
-            { keyword: 'seo services jakarta', rank: 2, clicks: 95 },
-            { keyword: 'marketbiz', rank: 1, clicks: 80 },
-            { keyword: 'jasa pembuat website', rank: 5, clicks: 65 },
-          ],
-          topPages: [
-            { path: '/', views: Math.floor(totalPageViews * 0.5), rate: '50%' },
-            { path: '/services', views: Math.floor(totalPageViews * 0.3), rate: '30%' },
-            { path: '/about', views: Math.floor(totalPageViews * 0.15), rate: '15%' },
-            { path: '/contact', views: Math.floor(totalPageViews * 0.05), rate: '5%' },
-          ]
+          keywords: [],
+          topPages: topPages.slice(0, 10)
         }
       });
     } catch (apiErr: any) {

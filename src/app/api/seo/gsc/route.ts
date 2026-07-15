@@ -59,19 +59,17 @@ export async function GET(request: NextRequest) {
 
     // Query Real GSC API
     try {
+      // --- REAL GSC API (DISABLED FOR NOW, USING MANUAL INPUT) ---
+      /*
       const accessToken = await getGoogleAccessToken(
         settings.google_service_account_email,
         settings.google_private_key
       );
 
       const endDate = new Date();
-      
-      // GSC typically has a 1-2 day data delay, so we shift endDate back by 1 day
       endDate.setDate(endDate.getDate() - 1);
-
       const startDate = new Date(endDate);
       if (range === 'today') {
-        // Just today (shifted by 1 day)
         startDate.setDate(endDate.getDate());
       } else if (range === '7daysAgo') {
         startDate.setDate(endDate.getDate() - 7);
@@ -80,12 +78,8 @@ export async function GET(request: NextRequest) {
       }
       
       const formatYMD = (d: Date) => d.toISOString().split('T')[0];
-
-      // GSC API URL
-      // Encode siteUrl because it can contain special characters (like https://)
       const gscApiUrl = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`;
 
-      // 1. Fetch Keywords (with Page URL)
       const keywordRes = await fetch(gscApiUrl, {
         method: 'POST',
         headers: {
@@ -111,11 +105,10 @@ export async function GET(request: NextRequest) {
         url: row.keys[1] ? row.keys[1].replace(siteUrl, '/').replace('//', '/') : '',
         clicks: row.clicks,
         impressions: row.impressions,
-        ctr: (row.ctr * 100).toFixed(1), // convert to percentage
+        ctr: (row.ctr * 100).toFixed(1),
         rank: row.position.toFixed(1)
       }));
 
-      // 2. Fetch Top Pages
       const pageRes = await fetch(gscApiUrl, {
         method: 'POST',
         headers: {
@@ -134,13 +127,80 @@ export async function GET(request: NextRequest) {
       if (pageRes.ok) {
         const pageData = await pageRes.json();
         topPages = (pageData.rows || []).map((row: any) => ({
-          path: row.keys[0].replace(siteUrl, '/').replace('//', '/'), // make it relative if possible
+          path: row.keys[0].replace(siteUrl, '/').replace('//', '/'),
           clicks: row.clicks,
           impressions: row.impressions,
           ctr: (row.ctr * 100).toFixed(1),
           rank: row.position.toFixed(1)
         }));
       }
+      */
+      // --- END OF REAL GSC API ---
+
+      let query = supabase
+        .from('seo_gsc_manual')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('date', { ascending: false });
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      query = query.lte('date', todayStr); // Never include future dates in current view
+
+      if (range !== 'all_time') {
+        const endDate = new Date();
+        const startDate = new Date(endDate);
+        if (range === 'today') {
+          startDate.setDate(endDate.getDate());
+        } else if (range === '7daysAgo') {
+          startDate.setDate(endDate.getDate() - 7);
+        } else {
+          startDate.setDate(endDate.getDate() - 30);
+        }
+        const formatYMD = (d: Date) => d.toISOString().split('T')[0];
+        query = query.gte('date', formatYMD(startDate));
+      }
+
+      const { data: manualData, error: manualErr } = await query;
+
+      if (manualErr) throw manualErr;
+
+      // Group by keyword
+      const keywordMap = new Map<string, any>();
+      for (const row of manualData || []) {
+        if (!keywordMap.has(row.keyword)) {
+          keywordMap.set(row.keyword, {
+            keyword: row.keyword,
+            url: row.url || '',
+            clicks: 0,
+            impressions: 0,
+            ctr: "0.0",
+            rank: row.rank.toFixed(1), // Latest rank (since ordered by date desc)
+            latest_id: row.id,
+            history: []
+          });
+        }
+        keywordMap.get(row.keyword).history.push({
+          id: row.id,
+          date: row.date,
+          rank: parseFloat(row.rank)
+        });
+      }
+
+      // Sort history ascending for charts and calculate rank change
+      const keywords = Array.from(keywordMap.values()).map(kw => {
+        kw.history.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (kw.history.length > 1) {
+          const currentRank = kw.history[kw.history.length - 1].rank;
+          const prevRank = kw.history[kw.history.length - 2].rank;
+          kw.rankChange = prevRank - currentRank; // positive means rank improved
+        } else {
+          kw.rankChange = 0;
+        }
+        return kw;
+      });
+
+      const topPages: any[] = [];
+      // --- END OF MANUAL GSC DATA ---
 
       return NextResponse.json({
         isDemo: false,
