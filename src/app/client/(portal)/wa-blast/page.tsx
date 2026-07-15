@@ -36,6 +36,7 @@ export default function ClientWABlastPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
   
   const [clientId, setClientId] = useState<string | null>(null);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
@@ -72,7 +73,7 @@ export default function ClientWABlastPage() {
       fetchData();
       fetchStats();
     }
-  }, [clientId, page]);
+  }, [clientId, page, dateRange]);
 
   async function fetchStats() {
     if (!clientId) return;
@@ -88,10 +89,25 @@ export default function ClientWABlastPage() {
       const projectIds = clientProjects?.map(p => p.id) || [];
 
       if (projectIds.length > 0) {
-        const { data: reportsData } = await supabase
+        let repQuery = supabase
           .from('wa_blast_reports')
-          .select('total_sent, delivered, read, failed', { count: 'exact' })
+          .select('total_sent, delivered, read, failed, created_at', { count: 'exact' })
           .in('project_id', projectIds);
+
+        if (dateRange !== 'all') {
+          const today = new Date();
+          let targetDate = new Date();
+          if (dateRange === 'today') {
+             targetDate.setHours(0,0,0,0);
+          } else if (dateRange === '7daysAgo') {
+             targetDate.setDate(today.getDate() - 7);
+          } else if (dateRange === '30daysAgo') {
+             targetDate.setDate(today.getDate() - 30);
+          }
+          repQuery = repQuery.gte('created_at', targetDate.toISOString().split('T')[0]);
+        }
+
+        const { data: reportsData } = await repQuery;
 
         if (reportsData) {
           setStats({
@@ -181,18 +197,30 @@ export default function ClientWABlastPage() {
       </div>
 
       {/* Section 1: Aggregated Metrics */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2 mt-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-2 mt-8 gap-4">
         <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
           <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
           Data Riil Gabungan (Global)
         </div>
-        <button 
-          onClick={() => setIsHelpModalOpen(true)}
-          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
-        >
-          <HelpCircle className="w-3.5 h-3.5" />
-          Penjelasan Metrik
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+          >
+            <option value="today">Hari Ini</option>
+            <option value="7daysAgo">7 Hari Terakhir</option>
+            <option value="30daysAgo">30 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+          <button 
+            onClick={() => setIsHelpModalOpen(true)}
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Penjelasan Metrik
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}

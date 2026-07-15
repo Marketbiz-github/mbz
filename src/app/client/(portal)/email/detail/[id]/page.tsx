@@ -16,7 +16,12 @@ import {
   MessageCircle,
   FileSpreadsheet,
   HelpCircle,
-  X
+  X,
+  Activity,
+  MousePointerClick,
+  MonitorOff,
+  UserX,
+  FileX
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';

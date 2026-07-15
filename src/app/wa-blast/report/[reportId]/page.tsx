@@ -13,10 +13,12 @@ import {
   Clock,
   Loader2,
   AlertTriangle,
-  MessageSquare
+  MessageSquare,
+  FileSpreadsheet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import AIInsightCard from '@/components/AIInsightCard';
 
 interface Recipient {
   id: string;
@@ -122,12 +124,53 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
     }
   };
 
-  const handleExportCSV = () => {
-    if (!report || recipients.length === 0) return;
+  const handleExportCSV = async () => {
+    if (!report) return;
     
-    // In a real app, you'd fetch all rows, not just the current page.
-    // For simplicity, we just trigger an alert here to simulate the action.
-    alert('Exporting CSV... In a production app, this would download all records for this report.');
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('wa_blast_recipients')
+        .select('*')
+        .eq('report_id', rId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      const csvContent = [
+        ["Name", "Phone Number", "Status", "Error Message", "Sent At"],
+        ...data.map(rec => [
+          rec.name || "-",
+          rec.phone_number,
+          rec.status,
+          rec.error_message ? rec.error_message.replace(/,/g, '') : "",
+          rec.sent_at ? new Date(rec.sent_at).toLocaleString() : "-"
+        ])
+      ].map(e => e.join(",")).join("\n");
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `WABlast_Report_${report.campaign_name.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to export CSV: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    window.print();
   };
 
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
@@ -230,6 +273,21 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
         </div>
       )}
 
+      {/* AI Insight Card */}
+      {report && (
+        <AIInsightCard 
+          reportType="WhatsApp Blast Campaign" 
+          reportData={{
+            campaignName: report.campaign_name,
+            totalSent: report.total_sent,
+            delivered: report.delivered,
+            read: report.read,
+            failed: report.failed,
+            successRate: report.total_sent > 0 ? Math.round(((report.delivered + report.read) / report.total_sent) * 100) + '%' : '0%'
+          }} 
+        />
+      )}
+
       {/* Toolbar */}
       <div className="high-tech-card p-4 flex flex-col md:flex-row items-center gap-4 bg-slate-900/40">
         <div className="relative flex-1 w-full max-w-md">
@@ -244,13 +302,20 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto print:hidden">
+          <button 
+            onClick={handleDownloadPDF}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            CETAK PDF
+          </button>
           <button 
             onClick={handleExportCSV}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
           >
-            <Download className="w-4 h-4" />
-            EXPORT CSV
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            EXPORT EXCEL
           </button>
         </div>
       </div>

@@ -101,6 +101,7 @@ export default function ClientSosmedPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   useEffect(() => {
     document.title = "Sosmed Performance | Client Portal";
@@ -110,7 +111,7 @@ export default function ClientSosmedPage() {
     if (user) {
       fetchData();
     }
-  }, [user, page]);
+  }, [user, page, dateRange]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -168,10 +169,25 @@ export default function ClientSosmedPage() {
       const projectIds = (allClientProjects || []).map(p => p.id);
 
       if (projectIds.length > 0) {
-        const { data: reportData } = await supabase
+        let repQuery = supabase
           .from('sosmed_reports')
-          .select('reach, impressions, engagement')
+          .select('reach, impressions, engagement, report_date')
           .in('project_id', projectIds);
+
+        if (dateRange !== 'all') {
+          const today = new Date();
+          let targetDate = new Date();
+          if (dateRange === 'today') {
+             targetDate.setHours(0,0,0,0);
+          } else if (dateRange === '7daysAgo') {
+             targetDate.setDate(today.getDate() - 7);
+          } else if (dateRange === '30daysAgo') {
+             targetDate.setDate(today.getDate() - 30);
+          }
+          repQuery = repQuery.gte('report_date', targetDate.toISOString().split('T')[0]);
+        }
+
+        const { data: reportData } = await repQuery;
 
         const totalReach = (reportData || []).reduce((sum, r) => sum + (r.reach || 0), 0);
         const totalImpressions = (reportData || []).reduce((sum, r) => sum + (r.impressions || 0), 0);
@@ -227,18 +243,30 @@ export default function ClientSosmedPage() {
       </div>
 
       {/* Section 2: Real-time Performance Metrics */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2 mt-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-2 mt-8 gap-4">
         <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
           <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
           Performa Keseluruhan
         </div>
-        <button 
-          onClick={() => setIsHelpModalOpen(true)}
-          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
-        >
-          <HelpCircle className="w-3.5 h-3.5" />
-          Penjelasan Metrik
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+          >
+            <option value="today">Hari Ini</option>
+            <option value="7daysAgo">7 Hari Terakhir</option>
+            <option value="30daysAgo">30 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+          <button 
+            onClick={() => setIsHelpModalOpen(true)}
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Penjelasan Metrik
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

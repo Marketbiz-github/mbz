@@ -147,6 +147,7 @@ export default function EmailPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
   const [filterClientId, setFilterClientId] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -196,7 +197,8 @@ export default function EmailPage() {
         page: page.toString(),
         limit: limit.toString(),
         ...(search ? { search } : {}),
-        ...(filterClientId ? { client_id: filterClientId } : {})
+        ...(filterClientId ? { client_id: filterClientId } : {}),
+        ...(dateRange ? { range: dateRange } : {})
       });
       const response = await fetch(`/api/email-campaigns?${queryParams.toString()}`);
       const result = await response.json();
@@ -216,7 +218,7 @@ export default function EmailPage() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, filterClientId]);
+  }, [page, limit, search, filterClientId, dateRange]);
 
   // Auto-fetch when filters/page change — fetch logic is inlined to avoid
   // the "setState in effect via callback" lint rule.
@@ -246,7 +248,8 @@ export default function EmailPage() {
           page: page.toString(),
           limit: limit.toString(),
           ...(search ? { search } : {}),
-          ...(filterClientId ? { client_id: filterClientId } : {})
+          ...(filterClientId ? { client_id: filterClientId } : {}),
+          ...(dateRange ? { range: dateRange } : {})
         });
         const response = await fetch(`/api/email-campaigns?${queryParams.toString()}`);
         const result = await response.json();
@@ -275,7 +278,7 @@ export default function EmailPage() {
     return () => { cancelled = true; };
   // supabase client is stable; only re-run when these values change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, filterClientId]);
+  }, [page, limit, search, filterClientId, dateRange]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -447,19 +450,30 @@ export default function EmailPage() {
         </div>
       ) : (
         <>
-          {/* Section 1: Real-time Global Email Metrics */}
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-2 mt-2 gap-4">
             <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
               <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
               Data Riil Email Blast (Global)
             </div>
-            <button 
-              onClick={() => setIsHelpModalOpen(true)}
-              className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              Penjelasan Metrik
-            </button>
+            <div className="flex items-center gap-3">
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+              >
+                <option value="today">Hari Ini</option>
+                <option value="7daysAgo">7 Hari Terakhir</option>
+                <option value="30daysAgo">30 Hari Terakhir</option>
+                <option value="all">Semua Waktu</option>
+              </select>
+              <button 
+                onClick={() => setIsHelpModalOpen(true)}
+                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Penjelasan Metrik
+              </button>
+            </div>
           </div>
 
           {/* Stats Grid */}

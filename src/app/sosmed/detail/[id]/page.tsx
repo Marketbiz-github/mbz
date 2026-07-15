@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import { createClient } from '@/lib/supabase/client';
+import AIInsightCard from '@/components/AIInsightCard';
 
 // Authentic Social Media Logo Icons (SVGs)
 export function InstagramLogo({ className = "w-4 h-4" }: { className?: string }) {
@@ -104,6 +105,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState<'account' | 'posts'>('account');
   const [loading, setLoading] = useState(true);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   // Form input logs (Account)
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -138,7 +140,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
 
   useEffect(() => {
     fetchProjectData();
-  }, [id]);
+  }, [id, dateRange]);
 
   useEffect(() => {
     if (project) {
@@ -166,20 +168,39 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
       }
 
       // 2. Fetch reports log
-      const { data: repData, error: repErr } = await supabase
+      let repQuery = supabase
         .from('sosmed_reports')
         .select('*')
         .eq('project_id', id)
         .order('report_date', { ascending: true });
-      if (repErr) throw repErr;
-      setReports(repData || []);
 
       // 3. Fetch tracked posts
-      const { data: pstData, error: pstErr } = await supabase
+      let pstQuery = supabase
         .from('sosmed_posts')
         .select('*')
         .eq('project_id', id)
         .order('posted_at', { ascending: false });
+
+      if (dateRange !== 'all') {
+        const today = new Date();
+        let targetDate = new Date();
+        if (dateRange === 'today') {
+           targetDate.setHours(0,0,0,0);
+        } else if (dateRange === '7daysAgo') {
+           targetDate.setDate(today.getDate() - 7);
+        } else if (dateRange === '30daysAgo') {
+           targetDate.setDate(today.getDate() - 30);
+        }
+        const targetDateStr = targetDate.toISOString().split('T')[0];
+        repQuery = repQuery.gte('report_date', targetDateStr);
+        pstQuery = pstQuery.gte('posted_at', targetDateStr);
+      }
+
+      const { data: repData, error: repErr } = await repQuery;
+      if (repErr) throw repErr;
+      setReports(repData || []);
+
+      const { data: pstData, error: pstErr } = await pstQuery;
       if (pstErr) throw pstErr;
       setPosts(pstData || []);
 
@@ -618,25 +639,39 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Platform & Section Selector tabs */}
       <div className="flex flex-col md:flex-row justify-between border-b border-white/10 gap-4 pb-2 print:hidden">
-        <div className="flex gap-2 overflow-x-auto">
-          {filteredPlatforms.map(p => {
-            const Icon = p.icon;
-            const isActive = selectedPlatform === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPlatform(p.id)}
-                className={cn("flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border select-none whitespace-nowrap",
-                  isActive 
-                    ? "bg-white/10 border-white/20 text-white shadow-lg"
-                    : "bg-transparent border-transparent text-slate-500 hover:text-white"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {p.label}
-              </button>
-            );
-          })}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex gap-2 overflow-x-auto">
+            {filteredPlatforms.map(p => {
+              const Icon = p.icon;
+              const isActive = selectedPlatform === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlatform(p.id)}
+                  className={cn("flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border select-none whitespace-nowrap",
+                    isActive 
+                      ? "bg-white/10 border-white/20 text-white shadow-lg"
+                      : "bg-transparent border-transparent text-slate-500 hover:text-white"
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer h-9"
+            >
+              <option value="today">Hari Ini</option>
+              <option value="7daysAgo">7 Hari Terakhir</option>
+              <option value="30daysAgo">30 Hari Terakhir</option>
+              <option value="all">Semua Waktu</option>
+            </select>
+          </div>
         </div>
 
         {/* Tab selector between Account and Post Tracking */}
@@ -658,6 +693,19 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
             Analisis Per Post
           </button>
         </div>
+      </div>
+
+      {/* AI Insight Card */}
+      <div className="mb-4">
+        <AIInsightCard 
+          reportType={`Social Media Report (${selectedPlatform} - ${activeTab})`}
+          reportData={{
+            platform: selectedPlatform,
+            tab: activeTab,
+            stats: currentData.stats,
+            hasData: currentData.hasData
+          }} 
+        />
       </div>
 
       {/* RENDER TAB 1: ANALISIS AKUN */}
