@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.max(1, parseInt(searchParams.get('limit') || '10'));
     const clientId = searchParams.get('client_id');
     const search = searchParams.get('search');
+    const dateRange = searchParams.get('range');
 
     // Calculate pagination range
     const from = (page - 1) * limit;
@@ -42,6 +43,21 @@ export async function GET(request: NextRequest) {
     if (search) {
       query = query.ilike('campaign_name', `%${search}%`);
     }
+    
+    let targetDateStr = '';
+    if (dateRange && dateRange !== 'all') {
+      const today = new Date();
+      let targetDate = new Date();
+      if (dateRange === 'today') {
+         targetDate.setHours(0,0,0,0);
+      } else if (dateRange === '7daysAgo') {
+         targetDate.setDate(today.getDate() - 7);
+      } else if (dateRange === '30daysAgo') {
+         targetDate.setDate(today.getDate() - 30);
+      }
+      targetDateStr = targetDate.toISOString();
+      query = query.gte('sent_at', targetDateStr);
+    }
 
     // Fetch paginated data
     const { data, count, error } = await query.range(from, to);
@@ -56,6 +72,9 @@ export async function GET(request: NextRequest) {
       .select('recipients, opens, clicks, bounces, projects!inner(client_id)');
     if (clientId) {
       aggQuery = aggQuery.eq('projects.client_id', clientId);
+    }
+    if (targetDateStr) {
+      aggQuery = aggQuery.gte('sent_at', targetDateStr);
     }
     const { data: aggData } = await aggQuery;
 

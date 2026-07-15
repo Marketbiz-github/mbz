@@ -54,6 +54,7 @@ export default function ClientEmailPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   useEffect(() => {
     document.title = "Email Blast Reports | Client Portal";
@@ -81,6 +82,7 @@ export default function ClientEmailPage() {
         const queryParams = new URLSearchParams({
           page: page.toString(),
           limit: limit.toString(),
+          range: dateRange,
           ...(search ? { search } : {}),
           client_id: clientInfo.id
         });
@@ -108,7 +110,7 @@ export default function ClientEmailPage() {
     };
     load();
     return () => { cancelled = true; };
-  }, [user, page, limit, search, supabase]);
+  }, [user, page, limit, search, dateRange, supabase]);
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -133,18 +135,30 @@ export default function ClientEmailPage() {
       </div>
 
       {/* Section 1: Real-time Global Email Metrics */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-2 gap-4">
         <div className="flex items-center gap-2 text-xs font-bold text-cyan-400 uppercase tracking-widest">
           <span className="w-1.5 h-3 bg-cyan-400 rounded-xs"></span>
           Data Riil Email Blast (Global)
         </div>
-        <button 
-          onClick={() => setIsHelpModalOpen(true)}
-          className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
-        >
-          <HelpCircle className="w-3.5 h-3.5" />
-          Penjelasan Metrik
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+          >
+            <option value="today">Hari Ini</option>
+            <option value="7daysAgo">7 Hari Terakhir</option>
+            <option value="30daysAgo">30 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+          <button 
+            onClick={() => setIsHelpModalOpen(true)}
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            Penjelasan Metrik
+          </button>
+        </div>
       </div>
 
       {/* Stats Grid */}

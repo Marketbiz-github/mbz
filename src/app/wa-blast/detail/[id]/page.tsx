@@ -43,10 +43,11 @@ export default function WABlastProjectDetail({ params }: { params: Promise<{ id:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   useEffect(() => {
     fetchData();
-  }, [projectId]);
+  }, [projectId, dateRange]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -64,11 +65,26 @@ export default function WABlastProjectDetail({ params }: { params: Promise<{ id:
       document.title = `${projData.name} - WA Blast | MarketBiz`;
 
       // Get Reports
-      const { data: reportsData, error: repErr } = await supabase
+      let repQuery = supabase
         .from('wa_blast_reports')
         .select('*')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
+
+      if (dateRange !== 'all') {
+        const today = new Date();
+        let targetDate = new Date();
+        if (dateRange === 'today') {
+           targetDate.setHours(0,0,0,0);
+        } else if (dateRange === '7daysAgo') {
+           targetDate.setDate(today.getDate() - 7);
+        } else if (dateRange === '30daysAgo') {
+           targetDate.setDate(today.getDate() - 30);
+        }
+        repQuery = repQuery.gte('created_at', targetDate.toISOString().split('T')[0]);
+      }
+
+      const { data: reportsData, error: repErr } = await repQuery;
 
       if (repErr) throw repErr;
       setReports(reportsData || []);
@@ -115,13 +131,25 @@ export default function WABlastProjectDetail({ params }: { params: Promise<{ id:
             className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
           />
         </div>
-        <Link
-          href={`/wa-blast/create/${projectId}`}
-          className="flex items-center justify-center gap-2 bg-linear-to-r from-emerald-500 to-teal-500 text-black px-6 py-2.5 rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer text-xs"
-        >
-          <Plus className="w-4 h-4" />
-          NEW CAMPAIGN
-        </Link>
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-emerald-500/50 appearance-none cursor-pointer w-full md:w-auto"
+          >
+            <option value="today">Hari Ini</option>
+            <option value="7daysAgo">7 Hari Terakhir</option>
+            <option value="30daysAgo">30 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+          <Link
+            href={`/wa-blast/create/${projectId}`}
+            className="flex items-center justify-center gap-2 bg-linear-to-r from-emerald-500 to-teal-500 text-black px-6 py-2.5 rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer text-xs whitespace-nowrap"
+          >
+            <Plus className="w-4 h-4" />
+            NEW CAMPAIGN
+          </Link>
+        </div>
       </div>
 
       {loading ? (

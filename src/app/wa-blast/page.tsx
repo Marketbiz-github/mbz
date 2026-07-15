@@ -132,6 +132,7 @@ export default function WABlastOverviewPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
   const [filterClientId, setFilterClientId] = useState('');
+  const [dateRange, setDateRange] = useState('30daysAgo');
 
   // Project Creation Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -161,7 +162,7 @@ export default function WABlastOverviewPage() {
 
   useEffect(() => {
     fetchStats();
-  }, [filterClientId, projects]);
+  }, [filterClientId, projects, dateRange]);
 
   const fetchInitialData = async () => {
     try {
@@ -232,7 +233,20 @@ export default function WABlastOverviewPage() {
 
   const fetchStats = async () => {
     try {
-      let query = supabase.from('wa_blast_reports').select('total_sent, delivered, read, failed', { count: 'exact' });
+      let query = supabase.from('wa_blast_reports').select('total_sent, delivered, read, failed, created_at', { count: 'exact' });
+
+      if (dateRange !== 'all') {
+        const today = new Date();
+        let targetDate = new Date();
+        if (dateRange === 'today') {
+           targetDate.setHours(0,0,0,0);
+        } else if (dateRange === '7daysAgo') {
+           targetDate.setDate(today.getDate() - 7);
+        } else if (dateRange === '30daysAgo') {
+           targetDate.setDate(today.getDate() - 30);
+        }
+        query = query.gte('created_at', targetDate.toISOString().split('T')[0]);
+      }
 
       if (filterClientId && projects.length > 0) {
         const projectIds = projects.filter(p => p.client_id === filterClientId).map(p => p.id);
@@ -343,6 +357,25 @@ export default function WABlastOverviewPage() {
       </div>
 
       {/* Stats Area */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-2 mt-8 gap-4">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+          <span className="w-1.5 h-3 bg-emerald-400 rounded-xs"></span>
+          Performa WA Blast (Global)
+        </div>
+        <div className="flex items-center gap-3">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-1.5 outline-none focus:border-cyan-500/50 appearance-none cursor-pointer"
+          >
+            <option value="today">Hari Ini</option>
+            <option value="7daysAgo">7 Hari Terakhir</option>
+            <option value="30daysAgo">30 Hari Terakhir</option>
+            <option value="all">Semua Waktu</option>
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="high-tech-card p-6 border-emerald-500/20 bg-slate-900/30">
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Projects</p>

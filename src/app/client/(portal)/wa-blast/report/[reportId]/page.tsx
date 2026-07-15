@@ -9,7 +9,9 @@ import {
   XCircle,
   Clock,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -135,6 +137,55 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
     }
   };
 
+  const handleExportCSV = async () => {
+    if (!report) return;
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('wa_blast_recipients')
+        .select('*')
+        .eq('report_id', rId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert('No data to export');
+        return;
+      }
+
+      const csvContent = [
+        ["Name", "Phone Number", "Status", "Error Message", "Sent At"],
+        ...data.map(rec => [
+          rec.name || "-",
+          rec.phone_number,
+          rec.status,
+          rec.error_message ? rec.error_message.replace(/,/g, '') : "",
+          rec.sent_at ? new Date(rec.sent_at).toLocaleString() : "-"
+        ])
+      ].map(e => e.join(",")).join("\n");
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `WABlast_Report_${report.campaign_name.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to export CSV: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    window.print();
+  };
+
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setPage(1);
@@ -211,6 +262,22 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
             onKeyDown={handleSearchKeyPress}
             className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
           />
+        </div>
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto print:hidden">
+          <button 
+            onClick={handleDownloadPDF}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            CETAK PDF
+          </button>
+          <button 
+            onClick={handleExportCSV}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            EXPORT EXCEL
+          </button>
         </div>
       </div>
 
