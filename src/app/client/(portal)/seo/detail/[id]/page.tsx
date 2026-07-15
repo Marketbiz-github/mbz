@@ -70,6 +70,7 @@ interface KeywordData {
   clicks: number;
   impressions?: number;
   ctr?: string;
+  history?: any[];
 }
 
 interface PageData {
@@ -101,6 +102,7 @@ interface GAData {
     avgSessionDuration: number;
     organicTraffic: number;
     chart: any[];
+    topPages?: any[];
   };
 }
 
@@ -711,7 +713,7 @@ export default function SEODetailPage(props: { params: Promise<{ id: string }> }
                     className="w-full h-full object-cover opacity-80"
                   >
                     <Geographies geography={geoUrl}>
-                      {({ geographies }) => {
+                      {({ geographies }: { geographies: any[] }) => {
                         const maxUsers = gaData.demographics?.countries?.[0]?.users || 1;
                         return geographies.map((geo) => {
                           const d = gaData.demographics?.countries?.find((s: any) => s.country === geo.properties.name);
