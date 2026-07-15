@@ -14,9 +14,15 @@ import {
   Mail,
   Users,
   MessageCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Activity,
+  MousePointerClick,
+  MonitorOff,
+  UserX,
+  FileX
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import AIInsightCard from '@/components/AIInsightCard';
 import { 
   ResponsiveContainer, 
   BarChart as RechartsBarChart, 
@@ -216,6 +222,23 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider bg-white/5 border border-white/5 w-fit px-3 py-1.5 rounded-full">
         <CheckCircle className="w-4 h-4 text-emerald-400 fill-emerald-500/10" />
         {campaign.status === 'completed' ? 'Done sending' : campaign.status}
+      </div>
+
+      {/* AI Insight Card */}
+      <div className="mb-8">
+        <AIInsightCard 
+          reportType="Email Blast Campaign" 
+          reportData={{
+            campaignName: campaign.campaign_name,
+            recipients: campaign.recipients,
+            opens: campaign.opens,
+            clicks: campaign.clicks,
+            bounces: campaign.bounces,
+            blocks: campaign.blocks,
+            replies: campaign.replies,
+            unsubscribes: campaign.unsubscribes
+          }} 
+        />
       </div>
 
       {/* Analytics Dashboard Grid layout */}

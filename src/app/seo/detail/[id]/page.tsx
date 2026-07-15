@@ -22,10 +22,13 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  XCircle,
+  Copy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import AIInsightCard from '@/components/AIInsightCard';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -421,6 +424,14 @@ export default function SEODetailPage({ params }: { params: Promise<{ id: string
               >
                 Search Console
               </button>
+            </div>
+
+            {/* AI Insight Card */}
+            <div className="mb-4 mt-6">
+              <AIInsightCard 
+                reportType={`SEO Report (${activeTab === 'ga4' ? 'Google Analytics 4' : 'Google Search Console'})`}
+                reportData={activeTab === 'ga4' ? gaData : gscData} 
+              />
             </div>
 
             {activeTab === 'ga4' && (

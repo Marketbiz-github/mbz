@@ -31,7 +31,9 @@ import {
   Printer,
   Calendar,
   AlertTriangle,
-  HelpCircle
+  HelpCircle,
+  ArrowRight,
+  LineChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';

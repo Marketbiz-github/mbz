@@ -22,7 +22,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  XCircle,
+  Copy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';

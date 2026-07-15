@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
+import AIInsightCard from '@/components/AIInsightCard';
 
 interface Recipient {
   id: string;
@@ -270,6 +271,21 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
             </h3>
           </div>
         </div>
+      )}
+
+      {/* AI Insight Card */}
+      {report && (
+        <AIInsightCard 
+          reportType="WhatsApp Blast Campaign" 
+          reportData={{
+            campaignName: report.campaign_name,
+            totalSent: report.total_sent,
+            delivered: report.delivered,
+            read: report.read,
+            failed: report.failed,
+            successRate: report.total_sent > 0 ? Math.round(((report.delivered + report.read) / report.total_sent) * 100) + '%' : '0%'
+          }} 
+        />
       )}
 
       {/* Toolbar */}

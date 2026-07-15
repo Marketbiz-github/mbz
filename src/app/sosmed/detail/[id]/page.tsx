@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import { createClient } from '@/lib/supabase/client';
+import AIInsightCard from '@/components/AIInsightCard';
 
 // Authentic Social Media Logo Icons (SVGs)
 export function InstagramLogo({ className = "w-4 h-4" }: { className?: string }) {
@@ -692,6 +693,19 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
             Analisis Per Post
           </button>
         </div>
+      </div>
+
+      {/* AI Insight Card */}
+      <div className="mb-4">
+        <AIInsightCard 
+          reportType={`Social Media Report (${selectedPlatform} - ${activeTab})`}
+          reportData={{
+            platform: selectedPlatform,
+            tab: activeTab,
+            stats: currentData.stats,
+            hasData: currentData.hasData
+          }} 
+        />
       </div>
 
       {/* RENDER TAB 1: ANALISIS AKUN */}
