@@ -25,6 +25,9 @@ interface Project {
   status: string;
   client_id: string;
   sosmed_platforms: string[];
+  profile_username?: string;
+  profile_url?: string;
+  platform_profiles?: Record<string, { username?: string; url?: string }>;
 }
 
 // Real Social SVG Logos
@@ -152,7 +155,10 @@ export default function ClientSosmedPage() {
         website_url: p.website_url || '',
         status: p.status,
         client_id: p.client_id,
-        sosmed_platforms: p.sosmed_platforms || ['instagram', 'tiktok', 'linkedin', 'facebook']
+        sosmed_platforms: p.active_platforms ? p.active_platforms.split(',') : ['instagram', 'tiktok', 'linkedin', 'facebook'],
+        profile_username: p.profile_username || '',
+        profile_url: p.profile_url || '',
+        platform_profiles: p.platform_profiles || {}
       }));
 
       setProjects(formatted);
@@ -369,61 +375,73 @@ export default function ClientSosmedPage() {
               <table className="w-full text-left min-w-[800px]">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Campaign Name</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Target URL</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Platforms</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16">No</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nama Campaign / Proyek</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Platform Aktif</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {projects.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-sm">
                         No social media campaigns found.
                       </td>
                     </tr>
                   ) : (
                     projects.map((proj, index) => {
                       const rowNumber = (page - 1) * limit + index + 1;
+                      const activePlats = proj.sosmed_platforms || ['instagram', 'tiktok', 'linkedin', 'facebook'];
                       return (
-                        <tr key={proj.id} className="hover:bg-white/2 transition-colors">
-                          <td className="px-6 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
+                        <tr key={proj.id} className="hover:bg-white/2 transition-colors group">
+                          <td className="px-6 py-4 text-xs font-mono text-slate-500">{rowNumber}</td>
                           <td className="px-6 py-4">
-                            <span className="font-bold text-sm text-white">{proj.name}</span>
+                            <div>
+                              <span className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors block">
+                                {proj.name}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-6 py-4">
-                            {proj.website_url ? (
-                              <a href={proj.website_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors max-w-[200px] truncate" title={proj.website_url}>
-                                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                                <span className="truncate">{proj.website_url.replace(/^https?:\/\//, '')}</span>
-                              </a>
-                            ) : (
-                              <span className="text-xs text-slate-600 italic">Not set</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {platforms.map(platform => {
-                                const isActive = proj.sosmed_platforms?.includes(platform.id);
-                                if (!isActive) return null;
+                            <div className="flex items-center gap-2.5">
+                              {activePlats.map(platId => {
+                                const pMeta = platforms.find(p => p.id === platId);
+                                const Icon = pMeta?.icon;
+                                if (!Icon) return null;
+                                
+                                const prof = proj.platform_profiles?.[platId];
+                                const profileUrl = prof?.url || '#';
+                                const tooltip = prof?.username ? `@${prof.username}` : pMeta.label;
+                                
                                 return (
-                                  <div key={platform.id} title={platform.label} className="w-6 h-6 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                                    <platform.icon />
-                                  </div>
+                                  <a 
+                                    key={platId}
+                                    href={profileUrl}
+                                    target={profileUrl !== '#' ? "_blank" : undefined}
+                                    rel={profileUrl !== '#' ? "noopener noreferrer" : undefined}
+                                    title={tooltip}
+                                    className={cn(
+                                      "transition-colors",
+                                      profileUrl !== '#' ? "text-cyan-400 hover:text-cyan-300" : "text-slate-500 hover:text-slate-400 cursor-default"
+                                    )}
+                                    onClick={(e) => profileUrl === '#' && e.preventDefault()}
+                                  >
+                                    <Icon className="w-4.5 h-4.5" />
+                                  </a>
                                 );
                               })}
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={cn(
-                              "text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md border",
+                            <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
                               proj.status === 'active' 
-                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" 
-                                : "bg-slate-800 text-slate-400 border-white/10"
+                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                : proj.status === 'completed'
+                                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
+                                  : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
                             )}>
-                              {proj.status === 'active' ? 'ACTIVE' : 'COMPLETED'}
+                              {proj.status === 'active' ? 'Ongoing' : proj.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right">

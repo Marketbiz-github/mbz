@@ -29,6 +29,9 @@ interface Project {
   status: string;
   client_id: string;
   active_platforms?: string;
+  profile_username?: string;
+  profile_url?: string;
+  platform_profiles?: Record<string, { username?: string; url?: string }>;
   clients?: {
     name: string;
   };
@@ -202,6 +205,9 @@ export default function SosmedOverviewPage() {
   const [newProjDesc, setNewProjDesc] = useState('');
   const [newProjUrl, setNewProjUrl] = useState('');
   const [newProjPlatforms, setNewProjPlatforms] = useState<string[]>([]);
+  const [newProjProfileUsername, setNewProjProfileUsername] = useState('');
+  const [newProjProfileUrl, setNewProjProfileUrl] = useState('');
+  const [newProjProfiles, setNewProjProfiles] = useState<Record<string, { username?: string; url?: string }>>({});
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -210,13 +216,16 @@ export default function SosmedOverviewPage() {
   const [editUrl, setEditUrl] = useState('');
   const [editStatus, setEditStatus] = useState('active');
   const [editPlatforms, setEditPlatforms] = useState<string[]>(['instagram', 'tiktok', 'linkedin', 'facebook']);
+  const [editProfileUsername, setEditProfileUsername] = useState('');
+  const [editProfileUrl, setEditProfileUrl] = useState('');
+  const [editProfiles, setEditProfiles] = useState<Record<string, { username?: string; url?: string }>>({});
   const [saving, setSaving] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   // Global Performance Stats
   const [stats, setStats] = useState({
+    totalViews: 0,
     totalReach: 0,
-    totalImpressions: 0,
     totalEngagement: 0,
     engagementRate: 0
   });
@@ -238,7 +247,7 @@ export default function SosmedOverviewPage() {
 
   const fetchStats = async () => {
     try {
-      let query = supabase.from('sosmed_reports').select('reach, impressions, engagement, report_date');
+      let query = supabase.from('sosmed_reports').select('reach, views, engagement, report_date');
 
       if (dateRange !== 'all') {
         const today = new Date();
@@ -259,7 +268,7 @@ export default function SosmedOverviewPage() {
         if (projectIds.length > 0) {
           query = query.in('project_id', projectIds);
         } else {
-          setStats({ totalReach: 0, totalImpressions: 0, totalEngagement: 0, engagementRate: 0 });
+          setStats({ totalViews: 0, totalReach: 0, totalEngagement: 0, engagementRate: 0 });
           return;
         }
       }
@@ -268,14 +277,14 @@ export default function SosmedOverviewPage() {
       if (error) throw error;
 
       if (data) {
+        const totalViews = data.reduce((acc, curr) => acc + (curr.views || 0), 0);
         const totalReach = data.reduce((acc, curr) => acc + (curr.reach || 0), 0);
-        const totalImpressions = data.reduce((acc, curr) => acc + (curr.impressions || 0), 0);
         const totalEngagement = data.reduce((acc, curr) => acc + (curr.engagement || 0), 0);
         const engagementRate = totalReach > 0 ? (totalEngagement / totalReach) * 100 : 0;
 
         setStats({
+          totalViews,
           totalReach,
-          totalImpressions,
           totalEngagement,
           engagementRate
         });
@@ -316,7 +325,7 @@ export default function SosmedOverviewPage() {
 
       let query = supabase
         .from('projects')
-        .select('id, name, website_url, status, client_id, active_platforms, clients(name)', { count: 'exact' })
+        .select('id, name, website_url, status, client_id, active_platforms, profile_username, profile_url, platform_profiles, clients(name)', { count: 'exact' })
         .eq('service_id', sosmedServiceId);
 
       if (filterClientId) {
@@ -345,8 +354,8 @@ export default function SosmedOverviewPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjClientId || !newProjName.trim() || !newProjUrl.trim()) {
-      alert('Klien, nama proyek, dan URL website wajib diisi.');
+    if (!newProjClientId || !newProjName.trim()) {
+      alert('Klien dan nama proyek wajib diisi.');
       return;
     }
     if (newProjPlatforms.length === 0) {
@@ -363,7 +372,10 @@ export default function SosmedOverviewPage() {
           service_id: sosmedServiceId,
           name: newProjName,
           description: newProjDesc,
-          website_url: newProjUrl,
+          website_url: '-', // Diset statis karena tidak relevan untuk sosmed
+          profile_username: newProjProfiles['instagram']?.username || newProjProfileUsername || null,
+          profile_url: newProjProfiles['instagram']?.url || newProjProfileUrl || null,
+          platform_profiles: newProjProfiles,
           status: 'active',
           active_platforms: newProjPlatforms.join(',')
         });
@@ -376,6 +388,9 @@ export default function SosmedOverviewPage() {
       setNewProjDesc('');
       setNewProjUrl('');
       setNewProjPlatforms([]);
+      setNewProjProfileUsername('');
+      setNewProjProfileUrl('');
+      setNewProjProfiles({});
       fetchData();
     } catch (err: any) {
       alert(err.message);
@@ -390,14 +405,17 @@ export default function SosmedOverviewPage() {
     setEditUrl(project.website_url || '');
     setEditStatus(project.status || 'active');
     setEditPlatforms(project.active_platforms ? project.active_platforms.split(',') : ['instagram', 'tiktok', 'linkedin', 'facebook']);
+    setEditProfileUsername(project.profile_username || '');
+    setEditProfileUrl(project.profile_url || '');
+    setEditProfiles(project.platform_profiles || {});
     setIsEditModalOpen(true);
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
-    if (!editName.trim() || !editUrl.trim()) {
-      alert('Nama proyek dan URL website wajib diisi.');
+    if (!editName.trim()) {
+      alert('Nama proyek wajib diisi.');
       return;
     }
     if (editPlatforms.length === 0) {
@@ -411,7 +429,10 @@ export default function SosmedOverviewPage() {
         .from('projects')
         .update({
           name: editName,
-          website_url: editUrl,
+          website_url: '-', // Diset statis karena tidak relevan untuk sosmed
+          profile_username: editProfiles['instagram']?.username || editProfileUsername || null,
+          profile_url: editProfiles['instagram']?.url || editProfileUrl || null,
+          platform_profiles: editProfiles,
           status: editStatus,
           active_platforms: editPlatforms.join(',')
         })
@@ -560,56 +581,39 @@ export default function SosmedOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {/* Total Reach */}
+        {/* Total Views */}
+        <div className="high-tech-card p-5 border-purple-500/20 bg-slate-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <Eye className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Views</span>
+          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.totalViews.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Total tayangan global</p>
+        </div>
+
+        {/* Accounts Reached */}
         <div className="high-tech-card p-5 border-blue-500/20 bg-slate-900/30">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total Reach</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Accounts Reached</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-white">{stats.totalReach.toLocaleString()}</h3>
-            {stats.totalImpressions > 0 && (
-              <span className="text-xs font-bold text-blue-400">
-                ({((stats.totalReach / stats.totalImpressions) * 100).toFixed(1)}%)
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">Jangkauan audiens global</p>
+          <h3 className="text-2xl font-bold text-white">{stats.totalReach.toLocaleString()}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">Jangkauan audiens unik</p>
         </div>
 
-        {/* Total Impressions */}
-        <div className="high-tech-card p-5 border-fuchsia-500/20 bg-slate-900/30">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-2 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20">
-              <Eye className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Impressions</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-white">{stats.totalImpressions.toLocaleString()}</h3>
-            <span className="text-xs font-bold text-fuchsia-400">(100%)</span>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">Total tayangan global</p>
-        </div>
-
-        {/* Total Engagement */}
+        {/* Total Interactions */}
         <div className="high-tech-card p-5 border-rose-500/20 bg-slate-900/30">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
               <Heart className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Engagement</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Interactions</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold text-white">{stats.totalEngagement.toLocaleString()}</h3>
-            {stats.totalReach > 0 && (
-              <span className="text-xs font-bold text-rose-400">
-                ({((stats.totalEngagement / stats.totalReach) * 100).toFixed(1)}%)
-              </span>
-            )}
-          </div>
+          <h3 className="text-2xl font-bold text-white">{stats.totalEngagement.toLocaleString()}</h3>
           <p className="text-[10px] text-slate-400 mt-1">Interaksi audiens global</p>
         </div>
 
@@ -622,7 +626,7 @@ export default function SosmedOverviewPage() {
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Eng. Rate</span>
           </div>
           <h3 className="text-2xl font-bold text-white">{stats.engagementRate.toFixed(2)}%</h3>
-          <p className="text-[10px] text-slate-400 mt-1">Rata-rata interaksi</p>
+          <p className="text-[10px] text-slate-400 mt-1">Interactions ÷ Reached × 100</p>
         </div>
       </div>
 
@@ -670,7 +674,6 @@ export default function SosmedOverviewPage() {
                 <tr className="bg-white/5 border-b border-white/10">
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest w-16">No</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Klien & Nama Proyek</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website URL</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Platform Aktif</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Aksi</th>
@@ -679,7 +682,7 @@ export default function SosmedOverviewPage() {
               <tbody className="divide-y divide-white/5">
                 {projects.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-xs text-slate-500">
+                    <td colSpan={5} className="px-6 py-12 text-center text-xs text-slate-500">
                       Tidak ada proyek sosial media yang terdaftar.
                     </td>
                   </tr>
@@ -701,22 +704,33 @@ export default function SosmedOverviewPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <a 
-                            href={project.website_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
-                          >
-                            {project.website_url}
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        </td>
-                        <td className="px-6 py-4">
                           <div className="flex items-center gap-2.5">
-                            {activePlats.includes('instagram') && <InstagramLogo className="w-4.5 h-4.5" />}
-                            {activePlats.includes('tiktok') && <TikTokLogo className="w-4.5 h-4.5" />}
-                            {activePlats.includes('linkedin') && <LinkedInLogo className="w-4.5 h-4.5" />}
-                            {activePlats.includes('facebook') && <FacebookLogo className="w-4.5 h-4.5" />}
+                            {activePlats.map(platId => {
+                              const pMeta = platforms.find(p => p.id === platId);
+                              const Icon = pMeta?.icon;
+                              if (!Icon) return null;
+                              
+                              const prof = project.platform_profiles?.[platId];
+                              const profileUrl = prof?.url || '#';
+                              const tooltip = prof?.username ? `@${prof.username}` : pMeta.label;
+                              
+                              return (
+                                <a 
+                                  key={platId}
+                                  href={profileUrl}
+                                  target={profileUrl !== '#' ? "_blank" : undefined}
+                                  rel={profileUrl !== '#' ? "noopener noreferrer" : undefined}
+                                  title={tooltip}
+                                  className={cn(
+                                    "transition-colors",
+                                    profileUrl !== '#' ? "text-cyan-400 hover:text-cyan-300" : "text-slate-500 hover:text-slate-400 cursor-default"
+                                  )}
+                                  onClick={(e) => profileUrl === '#' && e.preventDefault()}
+                                >
+                                  <Icon className="w-4.5 h-4.5" />
+                                </a>
+                              );
+                            })}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -788,7 +802,7 @@ export default function SosmedOverviewPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <form 
             onSubmit={handleCreateProject}
-            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto"
           >
             <button 
               type="button"
@@ -859,17 +873,46 @@ export default function SosmedOverviewPage() {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL <span className="text-red-500">*</span></label>
-                <input 
-                  type="url" 
-                  value={newProjUrl}
-                  onChange={(e) => setNewProjUrl(e.target.value)}
-                  placeholder="https://sinarjaya.com"
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
-                />
-              </div>
+              {newProjPlatforms.length > 0 && (
+                <div className="space-y-3 border-t border-white/10 pt-3">
+                  <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">
+                    Profil Akun per Platform
+                  </label>
+                  {newProjPlatforms.map(platId => {
+                    const pMeta = platforms.find(p => p.id === platId);
+                    return (
+                      <div key={platId} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-white">
+                          {pMeta && <pMeta.icon className="w-4 h-4" />}
+                          <span>Profil {pMeta?.label}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            type="text"
+                            placeholder={`Username ${pMeta?.label}`}
+                            value={newProjProfiles[platId]?.username || ''}
+                            onChange={(e) => setNewProjProfiles(prev => ({
+                              ...prev,
+                              [platId]: { ...prev[platId], username: e.target.value, url: prev[platId]?.url || '' }
+                            }))}
+                            className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-500/50"
+                          />
+                          <input 
+                            type="url"
+                            placeholder={`Link ${pMeta?.label}`}
+                            value={newProjProfiles[platId]?.url || ''}
+                            onChange={(e) => setNewProjProfiles(prev => ({
+                              ...prev,
+                              [platId]: { ...prev[platId], url: e.target.value, username: prev[platId]?.username || '' }
+                            }))}
+                            className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <button 
@@ -889,7 +932,7 @@ export default function SosmedOverviewPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
           <form 
             onSubmit={handleSaveEdit}
-            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6"
+            className="relative w-full max-w-md bg-slate-950 border border-white/15 rounded-2xl shadow-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto"
           >
             <button 
               type="button"
@@ -944,17 +987,46 @@ export default function SosmedOverviewPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Website URL <span className="text-red-500">*</span></label>
-                <input 
-                  type="url" 
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  placeholder="https://sinarjaya.com"
-                  required
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
-                />
-              </div>
+              {editPlatforms.length > 0 && (
+                <div className="space-y-3 border-t border-white/10 pt-3">
+                  <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest block">
+                    Profil Akun per Platform
+                  </label>
+                  {editPlatforms.map(platId => {
+                    const pMeta = platforms.find(p => p.id === platId);
+                    return (
+                      <div key={platId} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-white">
+                          {pMeta && <pMeta.icon className="w-4 h-4" />}
+                          <span>Profil {pMeta?.label}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input 
+                            type="text"
+                            placeholder={`Username ${pMeta?.label}`}
+                            value={editProfiles[platId]?.username || ''}
+                            onChange={(e) => setEditProfiles(prev => ({
+                              ...prev,
+                              [platId]: { ...prev[platId], username: e.target.value, url: prev[platId]?.url || '' }
+                            }))}
+                            className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-500/50"
+                          />
+                          <input 
+                            type="url"
+                            placeholder={`Link ${pMeta?.label}`}
+                            value={editProfiles[platId]?.url || ''}
+                            onChange={(e) => setEditProfiles(prev => ({
+                              ...prev,
+                              [platId]: { ...prev[platId], url: e.target.value, username: prev[platId]?.username || '' }
+                            }))}
+                            className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-cyan-500/50 font-mono"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status Proyek</label>
