@@ -16,6 +16,12 @@ export default function AIInsightCard({ reportType, reportData, className }: AII
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset insight when the context (reportType) changes
+  React.useEffect(() => {
+    setInsight(null);
+    setError(null);
+  }, [reportType]);
+
   const generateInsight = async () => {
     setLoading(true);
     setError(null);
