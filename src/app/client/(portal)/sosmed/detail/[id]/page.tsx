@@ -198,9 +198,9 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
         hasData: false,
         totalViews: 0, totalReach: 0, totalInteractions: 0, totalAccountsEngaged: 0,
         avgViewsFollowersPct: 0, avgViewsNonFollowersPct: 0,
-        avgViewsPostsPct: 0, avgViewsStoriesPct: 0,
+        avgViewsPostsPct: 0, avgViewsStoriesPct: 0, avgViewsReelsPct: 0,
         avgInteractionsFollowersPct: 0, avgInteractionsNonFollowersPct: 0,
-        avgInteractionsPostsPct: 0, avgInteractionsStoriesPct: 0,
+        avgInteractionsPostsPct: 0, avgInteractionsStoriesPct: 0, avgInteractionsReelsPct: 0,
         totalProfileVisits: 0, totalExternalLinkTaps: 0,
         totalFollowers: 0, engagementRate: 0,
         chart: []
@@ -237,10 +237,12 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
       avgViewsNonFollowersPct: weightedAvg('views_non_followers_pct'),
       avgViewsPostsPct: weightedAvg('views_posts_pct'),
       avgViewsStoriesPct: weightedAvg('views_stories_pct'),
+      avgViewsReelsPct: weightedAvg('views_reels_pct'),
       avgInteractionsFollowersPct: weightedAvg('interactions_followers_pct'),
       avgInteractionsNonFollowersPct: weightedAvg('interactions_non_followers_pct'),
       avgInteractionsPostsPct: weightedAvg('interactions_posts_pct'),
       avgInteractionsStoriesPct: weightedAvg('interactions_stories_pct'),
+      avgInteractionsReelsPct: weightedAvg('interactions_reels_pct'),
       totalProfileVisits, totalExternalLinkTaps,
       totalFollowers: latestFollowers,
       engagementRate,
@@ -535,6 +537,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                       <p className="text-[9px] text-slate-500 uppercase font-bold mb-2">By Content Type</p>
                       <PctBar label="Posts" pct={currentData.avgViewsPostsPct} color="#818cf8" />
                       <PctBar label="Stories" pct={currentData.avgViewsStoriesPct} color="#f472b6" />
+                      <PctBar label="Reels" pct={currentData.avgViewsReelsPct} color="#34d399" />
                     </div>
                   </div>
 
@@ -552,6 +555,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                       <p className="text-[9px] text-slate-500 uppercase font-bold mb-2">By Content Type</p>
                       <PctBar label="Posts" pct={currentData.avgInteractionsPostsPct} color="#818cf8" />
                       <PctBar label="Stories" pct={currentData.avgInteractionsStoriesPct} color="#f472b6" />
+                      <PctBar label="Reels" pct={currentData.avgInteractionsReelsPct} color="#34d399" />
                     </div>
                   </div>
                 </div>
@@ -599,12 +603,13 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                 {/* Bar: Views by content type */}
                 <div className="high-tech-card p-6">
                   <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Views per Jenis Konten</h3>
-                  {(currentData.avgViewsPostsPct > 0 || currentData.avgViewsStoriesPct > 0) ? (
+                  {(currentData.avgViewsPostsPct > 0 || currentData.avgViewsStoriesPct > 0 || currentData.avgViewsReelsPct > 0) ? (
                     <div className="w-full h-44">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={[
                           { name: 'Posts', value: currentData.avgViewsPostsPct, fill: '#818cf8' },
-                          { name: 'Stories', value: currentData.avgViewsStoriesPct, fill: '#f472b6' }
+                          { name: 'Stories', value: currentData.avgViewsStoriesPct, fill: '#f472b6' },
+                          { name: 'Reels', value: currentData.avgViewsReelsPct, fill: '#34d399' }
                         ]} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                           <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} />
@@ -613,6 +618,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                           <Bar dataKey="value" name="%" radius={[0, 6, 6, 0]}>
                             <Cell key="posts" fill="#818cf8" />
                             <Cell key="stories" fill="#f472b6" />
+                            <Cell key="reels" fill="#34d399" />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>

@@ -143,6 +143,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
   const [logViewsNonFollowersPct, setLogViewsNonFollowersPct] = useState('');
   const [logViewsPostsPct, setLogViewsPostsPct] = useState('');
   const [logViewsStoriesPct, setLogViewsStoriesPct] = useState('');
+  const [logViewsReelsPct, setLogViewsReelsPct] = useState('');
   // Accounts Reached
   const [logReach, setLogReach] = useState('');
   // Interactions
@@ -151,6 +152,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
   const [logInteractionsNonFollowersPct, setLogInteractionsNonFollowersPct] = useState('');
   const [logInteractionsPostsPct, setLogInteractionsPostsPct] = useState('');
   const [logInteractionsStoriesPct, setLogInteractionsStoriesPct] = useState('');
+  const [logInteractionsReelsPct, setLogInteractionsReelsPct] = useState('');
   const [logAccountsEngaged, setLogAccountsEngaged] = useState('');
   // Profile & Followers
   const [logProfileVisits, setLogProfileVisits] = useState('');
@@ -252,10 +254,10 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
   // ─── Account Log CRUD ──────────────────────────────────────
   const resetLogForm = () => {
     setLogViews(''); setLogViewsFollowersPct(''); setLogViewsNonFollowersPct('');
-    setLogViewsPostsPct(''); setLogViewsStoriesPct('');
+    setLogViewsPostsPct(''); setLogViewsStoriesPct(''); setLogViewsReelsPct('');
     setLogReach(''); setLogEngagement('');
     setLogInteractionsFollowersPct(''); setLogInteractionsNonFollowersPct('');
-    setLogInteractionsPostsPct(''); setLogInteractionsStoriesPct('');
+    setLogInteractionsPostsPct(''); setLogInteractionsStoriesPct(''); setLogInteractionsReelsPct('');
     setLogAccountsEngaged(''); setLogProfileVisits(''); setLogExternalLinkTaps('');
     setLogTotalFollowers(''); setLogNotes('');
   };
@@ -270,12 +272,14 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
     views_non_followers_pct: parseFloat(logViewsNonFollowersPct) || 0,
     views_posts_pct: parseFloat(logViewsPostsPct) || 0,
     views_stories_pct: parseFloat(logViewsStoriesPct) || 0,
+    views_reels_pct: parseFloat(logViewsReelsPct) || 0,
     reach: parseInt(logReach) || 0,
     engagement: parseInt(logEngagement) || 0,
     interactions_followers_pct: parseFloat(logInteractionsFollowersPct) || 0,
     interactions_non_followers_pct: parseFloat(logInteractionsNonFollowersPct) || 0,
     interactions_posts_pct: parseFloat(logInteractionsPostsPct) || 0,
     interactions_stories_pct: parseFloat(logInteractionsStoriesPct) || 0,
+    interactions_reels_pct: parseFloat(logInteractionsReelsPct) || 0,
     accounts_engaged: parseInt(logAccountsEngaged) || 0,
     profile_visits: parseInt(logProfileVisits) || 0,
     external_link_taps: parseInt(logExternalLinkTaps) || 0,
@@ -318,12 +322,14 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
     setLogViewsNonFollowersPct(item.views_non_followers_pct?.toString() || '');
     setLogViewsPostsPct(item.views_posts_pct?.toString() || '');
     setLogViewsStoriesPct(item.views_stories_pct?.toString() || '');
+    setLogViewsReelsPct(item.views_reels_pct?.toString() || '');
     setLogReach(item.reach?.toString() || '');
     setLogEngagement(item.engagement?.toString() || '');
     setLogInteractionsFollowersPct(item.interactions_followers_pct?.toString() || '');
     setLogInteractionsNonFollowersPct(item.interactions_non_followers_pct?.toString() || '');
     setLogInteractionsPostsPct(item.interactions_posts_pct?.toString() || '');
     setLogInteractionsStoriesPct(item.interactions_stories_pct?.toString() || '');
+    setLogInteractionsReelsPct(item.interactions_reels_pct?.toString() || '');
     setLogAccountsEngaged(item.accounts_engaged?.toString() || '');
     setLogProfileVisits(item.profile_visits?.toString() || '');
     setLogExternalLinkTaps(item.external_link_taps?.toString() || '');
@@ -507,9 +513,9 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
         hasData: false,
         totalViews: 0, totalReach: 0, totalInteractions: 0, totalAccountsEngaged: 0,
         avgViewsFollowersPct: 0, avgViewsNonFollowersPct: 0,
-        avgViewsPostsPct: 0, avgViewsStoriesPct: 0,
+        avgViewsPostsPct: 0, avgViewsStoriesPct: 0, avgViewsReelsPct: 0,
         avgInteractionsFollowersPct: 0, avgInteractionsNonFollowersPct: 0,
-        avgInteractionsPostsPct: 0, avgInteractionsStoriesPct: 0,
+        avgInteractionsPostsPct: 0, avgInteractionsStoriesPct: 0, avgInteractionsReelsPct: 0,
         totalProfileVisits: 0, totalExternalLinkTaps: 0,
         totalFollowers: 0, engagementRate: 0,
         chart: []
@@ -546,10 +552,12 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
       avgViewsNonFollowersPct: weightedAvg('views_non_followers_pct'),
       avgViewsPostsPct: weightedAvg('views_posts_pct'),
       avgViewsStoriesPct: weightedAvg('views_stories_pct'),
+      avgViewsReelsPct: weightedAvg('views_reels_pct'),
       avgInteractionsFollowersPct: weightedAvg('interactions_followers_pct'),
       avgInteractionsNonFollowersPct: weightedAvg('interactions_non_followers_pct'),
       avgInteractionsPostsPct: weightedAvg('interactions_posts_pct'),
       avgInteractionsStoriesPct: weightedAvg('interactions_stories_pct'),
+      avgInteractionsReelsPct: weightedAvg('interactions_reels_pct'),
       totalProfileVisits, totalExternalLinkTaps,
       totalFollowers: latestFollowers,
       engagementRate,
@@ -657,6 +665,10 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
             <label className="text-[9px] font-bold text-slate-500 uppercase block">Stories %</label>
             <input type="number" step="0.1" value={logViewsStoriesPct} onChange={(e) => setLogViewsStoriesPct(e.target.value)} placeholder="27.4" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50" />
           </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase block">Reels %</label>
+            <input type="number" step="0.1" value={logViewsReelsPct} onChange={(e) => setLogViewsReelsPct(e.target.value)} placeholder="0.1" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50" />
+          </div>
         </div>
       </div>
 
@@ -701,6 +713,10 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-slate-500 uppercase block">Stories %</label>
             <input type="number" step="0.1" value={logInteractionsStoriesPct} onChange={(e) => setLogInteractionsStoriesPct(e.target.value)} placeholder="7.1" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase block">Reels %</label>
+            <input type="number" step="0.1" value={logInteractionsReelsPct} onChange={(e) => setLogInteractionsReelsPct(e.target.value)} placeholder="0" className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-cyan-500/50" />
           </div>
         </div>
       </div>
@@ -1191,6 +1207,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                       <p className="text-[9px] text-slate-500 uppercase font-bold mb-2">By Content Type</p>
                       <PctBar label="Posts" pct={currentData.avgViewsPostsPct} color="#818cf8" />
                       <PctBar label="Stories" pct={currentData.avgViewsStoriesPct} color="#f472b6" />
+                      <PctBar label="Reels" pct={currentData.avgViewsReelsPct} color="#34d399" />
                     </div>
                   </div>
 
@@ -1208,6 +1225,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                       <p className="text-[9px] text-slate-500 uppercase font-bold mb-2">By Content Type</p>
                       <PctBar label="Posts" pct={currentData.avgInteractionsPostsPct} color="#818cf8" />
                       <PctBar label="Stories" pct={currentData.avgInteractionsStoriesPct} color="#f472b6" />
+                      <PctBar label="Reels" pct={currentData.avgInteractionsReelsPct} color="#34d399" />
                     </div>
                   </div>
                 </div>
@@ -1255,12 +1273,13 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                 {/* Bar: Views by content type */}
                 <div className="high-tech-card p-6">
                   <h3 className="text-sm font-bold text-white mb-4 uppercase tracking-wider">Views per Jenis Konten</h3>
-                  {(currentData.avgViewsPostsPct > 0 || currentData.avgViewsStoriesPct > 0) ? (
+                  {(currentData.avgViewsPostsPct > 0 || currentData.avgViewsStoriesPct > 0 || currentData.avgViewsReelsPct > 0) ? (
                     <div className="w-full h-44">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={[
                           { name: 'Posts', value: currentData.avgViewsPostsPct, fill: '#818cf8' },
-                          { name: 'Stories', value: currentData.avgViewsStoriesPct, fill: '#f472b6' }
+                          { name: 'Stories', value: currentData.avgViewsStoriesPct, fill: '#f472b6' },
+                          { name: 'Reels', value: currentData.avgViewsReelsPct, fill: '#34d399' }
                         ]} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                           <XAxis type="number" stroke="#64748b" fontSize={10} tickLine={false} />
@@ -1269,6 +1288,7 @@ export default function SosmedDetailPage({ params }: { params: Promise<{ id: str
                           <Bar dataKey="value" name="%" radius={[0, 6, 6, 0]}>
                             <Cell key="posts" fill="#818cf8" />
                             <Cell key="stories" fill="#f472b6" />
+                            <Cell key="reels" fill="#34d399" />
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
