@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   UploadCloud,
@@ -22,6 +22,8 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
   const { projectId } = React.use(params);
   const router = useRouter();
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const existingReportId = searchParams.get('reportId');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [projectName, setProjectName] = useState('Loading...');
@@ -50,12 +52,27 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function fetchProject() {
-      const { data } = await supabase.from('projects').select('name').eq('id', projectId).single();
-      if (data) setProjectName(data.name);
+    async function fetchData() {
+      // Fetch project name
+      const { data: project } = await supabase.from('projects').select('name').eq('id', projectId).single();
+      if (project) setProjectName(project.name);
+      
+      // If adding to existing campaign, fetch its data
+      if (existingReportId) {
+        const { data: report } = await supabase
+          .from('wa_blast_reports')
+          .select('campaign_name, template_name, total_sent, delivered, read, failed')
+          .eq('id', existingReportId)
+          .single();
+          
+        if (report) {
+          setCampaignName(report.campaign_name);
+          setTemplateName(report.template_name || '');
+        }
+      }
     }
-    fetchProject();
-  }, [projectId]);
+    fetchData();
+  }, [projectId, existingReportId, supabase]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -145,8 +162,8 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
         setError('Please enter at least one valid phone number.');
         return;
       }
-      finalDataToProcess = validRows.map(r => ({ name: r.name, phone: r.phone }));
-      finalHeaders = ['name', 'phone'];
+      finalDataToProcess = validRows;
+      finalHeaders = ['name', 'phone', 'status', 'tanggal'];
     }
 
     setLoading(true);
@@ -230,27 +247,59 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
         };
       });
 
-      // 2. Create Report (Campaign)
-      const { data: reportData, error: reportErr } = await supabase
-        .from('wa_blast_reports')
-        .insert({
-          project_id: projectId,
-          campaign_name: campaignName,
-          template_name: templateName,
-          status: 'running',
-          total_sent: recipientsToInsert.length,
-          delivered: initialDelivered,
-          read: initialRead,
-          failed: initialFailed,
-          source: 'manual'
-        })
-        .select()
-        .single();
+      // 2. Create or Update Report (Campaign)
+      let reportIdToUse = existingReportId;
 
-      if (reportErr) throw reportErr;
+      if (existingReportId) {
+        // We are adding to an existing campaign
+        const { data: currentReport, error: fetchErr } = await supabase
+          .from('wa_blast_reports')
+          .select('total_sent, delivered, read, failed')
+          .eq('id', existingReportId)
+          .single();
+          
+        if (fetchErr) throw fetchErr;
+
+        const newTotal = currentReport.total_sent + recipientsToInsert.length;
+        const newDelivered = currentReport.delivered + initialDelivered;
+        const newRead = currentReport.read + initialRead;
+        const newFailed = currentReport.failed + initialFailed;
+
+        const { error: updateErr } = await supabase
+          .from('wa_blast_reports')
+          .update({
+            total_sent: newTotal,
+            delivered: newDelivered,
+            read: newRead,
+            failed: newFailed
+          })
+          .eq('id', existingReportId);
+
+        if (updateErr) throw updateErr;
+      } else {
+        // Create new campaign
+        const { data: reportData, error: reportErr } = await supabase
+          .from('wa_blast_reports')
+          .insert({
+            project_id: projectId,
+            campaign_name: campaignName,
+            template_name: templateName,
+            status: 'running',
+            total_sent: recipientsToInsert.length,
+            delivered: initialDelivered,
+            read: initialRead,
+            failed: initialFailed,
+            source: 'manual'
+          })
+          .select()
+          .single();
+
+        if (reportErr) throw reportErr;
+        reportIdToUse = reportData.id;
+      }
 
       // Add report_id to recipients
-      const finalRecipients = recipientsToInsert.map(r => ({ ...r, report_id: reportData.id }));
+      const finalRecipients = recipientsToInsert.map(r => ({ ...r, report_id: reportIdToUse }));
 
       // 3. Insert Recipients in chunks (if large)
       const chunkSize = 500;
@@ -263,12 +312,12 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
         if (recErr) throw recErr;
       }
 
-      // 4. Redirect to project detail or report detail
-      router.push(`/wa-blast/report/${reportData.id}`);
+      // 4. Redirect to report detail
+      router.push(`/wa-blast/report/${reportIdToUse}`);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || 'An error occurred while creating the campaign.');
+      setError(err instanceof Error ? err.message : 'An error occurred while creating the campaign.');
       setLoading(false);
     }
   };
@@ -284,7 +333,7 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
         </Link>
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Create Campaign
+            {existingReportId ? 'Add Recipients to Campaign' : 'Create Campaign'}
           </h1>
           <p className="text-slate-400 mt-1">
             Project: <span className="text-emerald-400 font-semibold">{projectName}</span>
@@ -316,7 +365,8 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
                   value={campaignName}
                   onChange={(e) => setCampaignName(e.target.value)}
                   placeholder="e.g. Promo Merdeka"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/50"
+                  disabled={!!existingReportId}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -327,7 +377,8 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
                   placeholder="e.g. template_promo_v1"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/50"
+                  disabled={!!existingReportId}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -562,12 +613,12 @@ export default function CreateWABlastCampaign({ params }: { params: Promise<{ pr
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  CREATING CAMPAIGN...
+                  {existingReportId ? 'ADDING RECIPIENTS...' : 'CREATING CAMPAIGN...'}
                 </>
               ) : (
                 <>
                   <Play className="w-5 h-5" />
-                  LAUNCH CAMPAIGN
+                  {existingReportId ? 'ADD RECIPIENTS' : 'LAUNCH CAMPAIGN'}
                 </>
               )}
             </button>

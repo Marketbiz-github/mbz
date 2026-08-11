@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft,
   Search,
@@ -24,7 +24,7 @@ interface Recipient {
   status: string;
   error_message: string;
   sent_at: string;
-  dynamic_data: any;
+  dynamic_data: Record<string, unknown>;
 }
 
 interface Report {
@@ -58,9 +58,62 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
   
   // Pagination & Search
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+
+  const fetchReportInfo = React.useCallback(async (clientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('wa_blast_reports')
+        .select('*, projects(name, client_id)')
+        .eq('id', rId)
+        .single();
+        
+      if (error) throw error;
+      if (data.projects.client_id !== clientId) throw new Error("Access denied.");
+      
+      setReport(data);
+      document.title = `${data.campaign_name} - Analytics | Client Portal`;
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [rId, supabase]);
+
+  const fetchRecipients = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      let query = supabase
+        .from('wa_blast_recipients')
+        .select('*', { count: 'exact' })
+        .eq('report_id', rId)
+        .order('created_at', { ascending: false });
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%`);
+      }
+      
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, count, error } = await query.range(from, to);
+
+      if (error) throw error;
+      setRecipients(data || []);
+      setTotalCount(count || 0);
+    } catch (err: unknown) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [rId, supabase, page, limit, search, statusFilter]);
 
   useEffect(() => {
     async function init() {
@@ -81,61 +134,17 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
     }
     
     init();
-  }, [rId, user]);
+  }, [user, supabase, fetchReportInfo]);
 
   useEffect(() => {
     if (report) {
-      fetchRecipients();
+      // Avoid calling setState synchronously within an effect
+      const timeoutId = setTimeout(() => {
+        fetchRecipients();
+      }, 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [report, page, search]);
-
-  const fetchReportInfo = async (clientId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('wa_blast_reports')
-        .select('*, projects(name, client_id)')
-        .eq('id', rId)
-        .single();
-        
-      if (error) throw error;
-      if (data.projects.client_id !== clientId) throw new Error("Access denied.");
-      
-      setReport(data);
-      document.title = `${data.campaign_name} - Analytics | Client Portal`;
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message);
-    }
-  };
-
-  const fetchRecipients = async () => {
-    setLoading(true);
-    try {
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-
-      let query = supabase
-        .from('wa_blast_recipients')
-        .select('*', { count: 'exact' })
-        .eq('report_id', rId)
-        .order('created_at', { ascending: false });
-
-      if (search) {
-        query = query.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%`);
-      }
-
-      const { data, count, error } = await query.range(from, to);
-
-      if (error) throw error;
-      setRecipients(data || []);
-      setTotalCount(count || 0);
-    } catch (err: any) {
-      console.error(err);
-      if (!error) setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [report, fetchRecipients]);
 
   const handleExportCSV = async () => {
     if (!report) return;
@@ -174,9 +183,9 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert('Failed to export CSV: ' + err.message);
+      alert('Failed to export CSV: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -252,16 +261,33 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
 
       {/* Toolbar */}
       <div className="high-tech-card p-4 flex flex-col md:flex-row items-center gap-4 bg-slate-900/40">
-        <div className="relative flex-1 w-full max-w-md">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-          <input 
-            type="text"
-            placeholder="Search by name or number... (Press Enter)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleSearchKeyPress}
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
-          />
+        <div className="flex gap-3 flex-1 w-full max-w-xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <input 
+              type="text"
+              placeholder="Search name or number..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyPress}
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50 min-w-32.5 cursor-pointer"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="sent">Sent</option>
+            <option value="delivered">Delivered</option>
+            <option value="read">Read</option>
+            <option value="failed">Failed</option>
+          </select>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto print:hidden">
           <button 
@@ -295,7 +321,7 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
         <div className="space-y-6">
           <div className="high-tech-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[800px]">
+              <table className="w-full text-left min-w-200">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
@@ -324,9 +350,9 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
-                              {Object.entries(rec.dynamic_data || {}).slice(0, 3).map(([k, v]: [string, any]) => (
+                              {Object.entries(rec.dynamic_data || {}).slice(0, 3).map(([k, v]) => (
                                 <span key={k} className="px-2 py-0.5 bg-white/5 rounded border border-white/10 text-[10px] text-slate-300">
-                                  <span className="text-slate-500 capitalize">{k}:</span> {v}
+                                  <span className="text-slate-500 capitalize">{k}:</span> {String(v)}
                                 </span>
                               ))}
                               {Object.keys(rec.dynamic_data || {}).length > 3 && (
@@ -351,7 +377,7 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
                                 {rec.status}
                               </span>
                               {rec.error_message && (
-                                <span className="text-[10px] text-red-400/80 max-w-[200px] truncate" title={rec.error_message}>
+                                <span className="text-[10px] text-red-400/80 max-w-50 truncate" title={rec.error_message}>
                                   {rec.error_message}
                                 </span>
                               )}
@@ -374,14 +400,43 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
               <span className="text-xs text-slate-500 font-bold">
                 Showing page {page} of {totalPages} ({totalCount} total)
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <button
                   disabled={page === 1}
                   onClick={() => setPage(p => p - 1)}
                   className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  PREVIOUS
+                  PREV
                 </button>
+                
+                {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = idx + 1;
+                  } else if (page <= 3) {
+                    pageNum = idx + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + idx;
+                  } else {
+                    pageNum = page - 2 + idx;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer",
+                        page === pageNum 
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                          : "bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
                 <button
                   disabled={page === totalPages}
                   onClick={() => setPage(p => p + 1)}
