@@ -58,10 +58,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [isResetting, setIsResetting] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   
-  // Progress edit states
-  const [editingProgressId, setEditingProgressId] = useState<string | null>(null);
-  const [newProgressValue, setNewProgressValue] = useState<number>(0);
-  const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  // Project edit states
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editProjectName, setEditProjectName] = useState<string>('');
+  const [editProgressValue, setEditProgressValue] = useState<number>(0);
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
 
   useEffect(() => {
     if (client) {
@@ -165,23 +166,23 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const handleUpdateProgress = async () => {
-    if (!editingProgressId) return;
-    setIsUpdatingProgress(true);
+  const handleUpdateProject = async () => {
+    if (!editingProjectId) return;
+    setIsUpdatingProject(true);
     try {
       const { error } = await supabase
         .from('projects')
-        .update({ progress: newProgressValue })
-        .eq('id', editingProgressId);
+        .update({ name: editProjectName, progress: editProgressValue })
+        .eq('id', editingProjectId);
 
       if (error) throw error;
       
-      setProjects(prev => prev.map(p => p.id === editingProgressId ? { ...p, progress: newProgressValue } : p));
-      setEditingProgressId(null);
+      setProjects(prev => prev.map(p => p.id === editingProjectId ? { ...p, name: editProjectName, progress: editProgressValue } : p));
+      setEditingProjectId(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to update progress');
+      alert(err.message || 'Failed to update project');
     } finally {
-      setIsUpdatingProgress(false);
+      setIsUpdatingProject(false);
     }
   };
 
@@ -589,10 +590,22 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   {filteredProjects.map(proj => (
                     <tr key={proj.id} className="hover:bg-white/2 transition-colors cursor-pointer group">
                       <td className="px-6 py-4">
-                        <p className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{proj.name}</p>
-                        <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                          <Calendar className="w-3 h-3" /> {proj.lastUpdate}
-                        </p>
+                        {editingProjectId === proj.id ? (
+                          <input 
+                            type="text" 
+                            value={editProjectName}
+                            onChange={(e) => setEditProjectName(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full px-2 py-1 bg-white/10 border border-cyan-500/50 rounded text-sm text-white focus:outline-none"
+                          />
+                        ) : (
+                          <>
+                            <p className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{proj.name}</p>
+                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                              <Calendar className="w-3 h-3" /> {proj.lastUpdate}
+                            </p>
+                          </>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 bg-white/5 rounded text-xs text-slate-300 border border-white/10">
@@ -609,24 +622,25 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-3 group/progress">
-                          {editingProgressId === proj.id ? (
+                          {editingProjectId === proj.id ? (
                             <div className="flex items-center gap-2">
                               <input 
                                 type="number" 
                                 min="0" max="100"
-                                value={newProgressValue}
-                                onChange={(e) => setNewProgressValue(Number(e.target.value))}
+                                value={editProgressValue}
+                                onChange={(e) => setEditProgressValue(Number(e.target.value))}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-16 px-2 py-1 bg-white/10 border border-cyan-500/50 rounded text-xs text-white text-center focus:outline-none"
                               />
                               <button 
-                                onClick={(e) => { e.stopPropagation(); handleUpdateProgress(); }}
-                                disabled={isUpdatingProgress}
+                                onClick={(e) => { e.stopPropagation(); handleUpdateProject(); }}
+                                disabled={isUpdatingProject}
                                 className="p-1.5 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-black rounded transition-colors"
                               >
-                                {isUpdatingProgress ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div> : <Save className="w-3 h-3" />}
+                                {isUpdatingProject ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></div> : <Save className="w-3 h-3" />}
                               </button>
                               <button 
-                                onClick={(e) => { e.stopPropagation(); setEditingProgressId(null); }}
+                                onClick={(e) => { e.stopPropagation(); setEditingProjectId(null); }}
                                 className="p-1.5 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white rounded transition-colors"
                               >
                                 <X className="w-3 h-3" />
@@ -647,10 +661,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               <button 
                                 onClick={(e) => { 
                                   e.stopPropagation(); 
-                                  setEditingProgressId(proj.id); 
-                                  setNewProgressValue(proj.progress); 
+                                  setEditingProjectId(proj.id); 
+                                  setEditProjectName(proj.name);
+                                  setEditProgressValue(proj.progress); 
                                 }}
-                                className="opacity-0 group-hover/progress:opacity-100 p-1 text-slate-500 hover:text-cyan-400 transition-all"
+                                className="opacity-100 p-1 text-slate-500 hover:text-cyan-400 transition-all"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
