@@ -258,9 +258,9 @@ export default function ClientEmailPage() {
                   <tr className="bg-white/5 border-b border-white/10">
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Campaign Name</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Recipients</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Opens</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Clicks</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Sender Info</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Recipients</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Performance</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
@@ -282,23 +282,29 @@ export default function ClientEmailPage() {
                           <p className="font-bold text-sm text-white mb-1">{camp.name}</p>
                           <p className="text-xs text-slate-500 font-mono">Sent: {new Date(camp.sent_at).toLocaleDateString()}</p>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-mono text-sm text-slate-300">{camp.recipients.toLocaleString()}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex flex-col items-end">
-                            <span className="font-mono text-sm text-cyan-400 font-bold">{camp.opens.toLocaleString()}</span>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
-                              {((camp.opens / (camp.recipients || 1)) * 100).toFixed(1)}%
-                            </span>
+                        <td className="px-6 py-4">
+                          <div className="text-xs text-slate-300">
+                            <p>{camp.sender}</p>
+                            <p className="text-slate-500">UTCID: {camp.utcid || 'N/A'}</p>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex flex-col items-end">
-                            <span className="font-mono text-sm text-emerald-400 font-bold">{camp.clicks.toLocaleString()}</span>
-                            <span className="text-[10px] text-slate-500 mt-0.5">
-                              {((camp.clicks / (camp.opens || 1)) * 100).toFixed(1)}%
-                            </span>
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-bold text-white">{camp.recipients.toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-6">
+                            <div>
+                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Opens</p>
+                              <p className="text-sm font-bold text-emerald-400">{camp.opens} ({((camp.opens / (camp.recipients || 1)) * 100).toFixed(1)}%)</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Clicks</p>
+                              <p className="text-sm font-bold text-cyan-400">{camp.clicks} ({((camp.clicks / (camp.recipients || 1)) * 100).toFixed(1)}%)</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Bounces</p>
+                              <p className="text-sm font-bold text-amber-400">{camp.bounces} ({((camp.bounces / (camp.recipients || 1)) * 100).toFixed(1)}%)</p>
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
