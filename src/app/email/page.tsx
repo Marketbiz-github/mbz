@@ -643,6 +643,10 @@ export default function EmailPage() {
                                     <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Clicks</p>
                                     <p className="text-sm font-bold text-cyan-400">{camp.clicks} ({clickRate}%)</p>
                                   </div>
+                                  <div>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Bounces</p>
+                                    <p className="text-sm font-bold text-amber-400">{camp.bounces} ({(camp.recipients > 0 ? ((camp.bounces / camp.recipients) * 100) : 0).toFixed(1)}%)</p>
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
