@@ -1,20 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft,
   Search,
   Download,
-  RotateCw,
   CheckCircle2,
   XCircle,
   Clock,
   Loader2,
   AlertTriangle,
-  MessageSquare,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit2,
+  Save,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -27,7 +28,7 @@ interface Recipient {
   status: string;
   error_message: string;
   sent_at: string;
-  dynamic_data: any;
+  dynamic_data: Record<string, unknown>;
 }
 
 interface Report {
@@ -59,19 +60,20 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
   
   // Pagination & Search
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
-  useEffect(() => {
-    fetchReportInfo();
-  }, [rId]);
+  // Edit Campaign State
+  const [isEditingCampaign, setIsEditingCampaign] = useState(false);
+  const [editCampaignName, setEditCampaignName] = useState('');
+  const [editTemplateName, setEditTemplateName] = useState('');
+  const [savingCampaign, setSavingCampaign] = useState(false);
 
-  useEffect(() => {
-    fetchRecipients();
-  }, [rId, page, search]);
 
-  const fetchReportInfo = async () => {
+
+  const fetchReportInfo = React.useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('wa_blast_reports')
@@ -81,14 +83,13 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
         
       if (error) throw error;
       setReport(data);
-      document.title = `${data.campaign_name} - Report | MarketBiz`;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
     }
-  };
+  }, [rId, supabase]);
 
-  const fetchRecipients = async () => {
+  const fetchRecipients = React.useCallback(async () => {
     setLoading(true);
     try {
       const from = (page - 1) * limit;
@@ -103,19 +104,43 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
       if (search) {
         query = query.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%`);
       }
+      
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
 
       const { data, count, error } = await query.range(from, to);
 
       if (error) throw error;
       setRecipients(data || []);
       setTotalCount(count || 0);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      if (!error) setError(err.message); // Only set if report info didn't fail
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [rId, supabase, page, limit, search, statusFilter]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchReportInfo();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [fetchReportInfo]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchRecipients();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [fetchRecipients]);
+
+  useEffect(() => {
+    if (report?.campaign_name) {
+      document.title = `${report.campaign_name} - Report | MarketBiz`;
+    }
+  }, [report?.campaign_name]);
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -123,6 +148,25 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
       fetchRecipients();
     }
   };
+
+  const handleSaveCampaign = async () => {
+    if (!editCampaignName.trim()) return;
+    setSavingCampaign(true);
+    try {
+      const { error } = await supabase
+        .from('wa_blast_reports')
+        .update({ campaign_name: editCampaignName, template_name: editTemplateName })
+        .eq('id', rId);
+      if (error) throw error;
+      setReport(prev => prev ? { ...prev, campaign_name: editCampaignName, template_name: editTemplateName } : prev);
+      setIsEditingCampaign(false);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingCampaign(false);
+    }
+  };
+
 
   const handleExportCSV = async () => {
     if (!report) return;
@@ -161,9 +205,9 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert('Failed to export CSV: ' + err.message);
+      alert('Failed to export CSV: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -210,9 +254,48 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
       
       // Recalculate stats for UI
       fetchReportInfo();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      alert('Failed to update status: ' + err.message);
+      alert('Failed to update status: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleDeleteRecipient = async (recipientId: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus kontak ini?')) return;
+    try {
+      const { error } = await supabase
+        .from('wa_blast_recipients')
+        .delete()
+        .eq('id', recipientId);
+
+      if (error) throw error;
+
+      // Update local state
+      setRecipients(prev => prev.filter(r => r.id !== recipientId));
+
+      // Calculate new stats
+      const { data: allRecs } = await supabase
+        .from('wa_blast_recipients')
+        .select('status')
+        .eq('report_id', rId);
+
+      if (allRecs) {
+        const total_sent = allRecs.length;
+        const delivered = allRecs.filter(r => r.status === 'delivered').length;
+        const read = allRecs.filter(r => r.status === 'read').length;
+        const failed = allRecs.filter(r => r.status === 'failed').length;
+
+        // Sync report stats
+        await supabase
+          .from('wa_blast_reports')
+          .update({ total_sent, delivered, read, failed })
+          .eq('id', rId);
+      }
+
+      fetchReportInfo();
+    } catch (err: unknown) {
+      console.error(err);
+      alert('Gagal menghapus kontak: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -228,20 +311,64 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            {report?.campaign_name || 'Loading Report...'}
-            {report && (
-              <span className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                report.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                report.status === 'running' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
-                'bg-slate-500/10 text-slate-400 border border-slate-500/20'
-              )}>
-                {report.status}
-              </span>
-            )}
-          </h1>
-          <p className="text-slate-400 mt-1">
+          {isEditingCampaign ? (
+            <div className="flex items-center gap-2 mb-2">
+              <input 
+                type="text" 
+                value={editCampaignName} 
+                onChange={e => setEditCampaignName(e.target.value)}
+                placeholder="Campaign Name"
+                className="bg-slate-900 border border-white/20 rounded-lg px-3 py-1.5 text-sm text-white font-bold outline-none focus:border-emerald-500/50"
+              />
+              <input 
+                type="text" 
+                value={editTemplateName} 
+                onChange={e => setEditTemplateName(e.target.value)}
+                placeholder="Template ID"
+                className="bg-slate-900 border border-white/20 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-emerald-500/50 w-32"
+              />
+              <button onClick={handleSaveCampaign} disabled={savingCampaign} className="p-1.5 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors">
+                {savingCampaign ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              </button>
+              <button onClick={() => setIsEditingCampaign(false)} className="p-1.5 bg-white/10 text-slate-400 rounded-lg hover:bg-white/20 transition-colors">
+                <XCircle className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <h1 className="text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
+              {report?.campaign_name || 'Loading Report...'}
+              {report && (
+                <button 
+                  onClick={() => {
+                    setEditCampaignName(report.campaign_name);
+                    setEditTemplateName(report.template_name || '');
+                    setIsEditingCampaign(true);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer" 
+                  title="Edit Campaign"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+              {report && (
+                <span className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                  report.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                  report.status === 'running' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                  'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                )}>
+                  {report.status}
+                </span>
+              )}
+            </h1>
+          )}
+          <p className="text-slate-400 mt-1 flex items-center gap-2">
             Project: <span className="text-emerald-400 font-semibold">{report?.projects?.name || '...'}</span>
+            {report?.template_name && (
+              <>
+                <span className="text-slate-600">•</span>
+                Template: <span className="text-cyan-400 font-mono text-sm">{report.template_name}</span>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -290,19 +417,43 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
 
       {/* Toolbar */}
       <div className="high-tech-card p-4 flex flex-col md:flex-row items-center gap-4 bg-slate-900/40">
-        <div className="relative flex-1 w-full max-w-md">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-          <input 
-            type="text"
-            placeholder="Search by name or number... (Press Enter)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleSearchKeyPress}
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
-          />
+        <div className="flex gap-3 flex-1 w-full max-w-xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <input 
+              type="text"
+              placeholder="Search name or number..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyPress}
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-emerald-500/50"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none focus:border-emerald-500/50 min-w-32.5 cursor-pointer"
+          >
+            <option value="all" className="bg-slate-900 text-white">All Status</option>
+            <option value="pending" className="bg-slate-900 text-white">Pending</option>
+            <option value="sent" className="bg-slate-900 text-white">Sent</option>
+            <option value="delivered" className="bg-slate-900 text-white">Delivered</option>
+            <option value="read" className="bg-slate-900 text-white">Read</option>
+            <option value="failed" className="bg-slate-900 text-white">Failed</option>
+          </select>
         </div>
 
         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto print:hidden">
+          <button
+            onClick={() => report && router.push(`/wa-blast/create/${report.project_id}?reportId=${rId}`)}
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            ADD RECIPIENT
+          </button>
           <button 
             onClick={handleDownloadPDF}
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 px-4 py-2 rounded-lg font-bold text-xs transition-colors cursor-pointer"
@@ -320,6 +471,7 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
         </div>
       </div>
 
+
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
@@ -334,7 +486,7 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
         <div className="space-y-6">
           <div className="high-tech-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[800px]">
+              <table className="w-full text-left min-w-200">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
@@ -363,9 +515,9 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
-                              {Object.entries(rec.dynamic_data || {}).slice(0, 3).map(([k, v]: [string, any]) => (
+                              {Object.entries(rec.dynamic_data || {}).slice(0, 3).map(([k, v]) => (
                                 <span key={k} className="px-2 py-0.5 bg-white/5 rounded border border-white/10 text-[10px] text-slate-300">
-                                  <span className="text-slate-500 capitalize">{k}:</span> {v}
+                                  <span className="text-slate-500 capitalize">{k}:</span> {String(v)}
                                 </span>
                               ))}
                               {Object.keys(rec.dynamic_data || {}).length > 3 && (
@@ -396,29 +548,39 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
                                 <button 
                                   onClick={() => setEditingStatusId(rec.id)}
                                   title="Click to manually update status"
-                                  className={cn("px-2 py-1 rounded flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:ring-2 ring-white/20 transition-all",
-                                    rec.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-400' :
-                                    rec.status === 'read' ? 'bg-cyan-500/10 text-cyan-400' :
-                                    rec.status === 'sent' ? 'bg-indigo-500/10 text-indigo-400' :
-                                    rec.status === 'failed' ? 'bg-red-500/10 text-red-400' :
-                                    'bg-slate-500/10 text-slate-400'
+                                  className={cn("px-2 py-1 rounded flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:ring-2 ring-white/20 transition-all group",
+                                    rec.status === 'delivered' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                                    rec.status === 'read' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                                    rec.status === 'sent' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' :
+                                    rec.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                                    'bg-slate-500/10 text-slate-400 border border-slate-500/20'
                                   )}
                                 >
                                   {rec.status === 'delivered' || rec.status === 'read' ? <CheckCircle2 className="w-3 h-3" /> :
                                    rec.status === 'failed' ? <XCircle className="w-3 h-3" /> :
                                    rec.status === 'pending' ? <Clock className="w-3 h-3" /> : null}
                                   {rec.status}
+                                  <Edit2 className="w-3 h-3 ml-1" />
                                 </button>
                               )}
                               {rec.error_message && (
-                                <span className="text-[10px] text-red-400/80 max-w-[200px] truncate" title={rec.error_message}>
+                                <span className="text-[10px] text-red-400/80 max-w-50 truncate" title={rec.error_message}>
                                   {rec.error_message}
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-400">
-                            {rec.sent_at ? new Date(rec.sent_at).toLocaleString() : '-'}
+                            <div className="flex items-center justify-between">
+                              <span>{rec.sent_at ? new Date(rec.sent_at).toLocaleString() : '-'}</span>
+                              <button 
+                                onClick={() => handleDeleteRecipient(rec.id)}
+                                title="Hapus kontak ini"
+                                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -434,14 +596,43 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
               <span className="text-xs text-slate-500 font-bold">
                 Showing page {page} of {totalPages} ({totalCount} total)
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <button
                   disabled={page === 1}
                   onClick={() => setPage(p => p - 1)}
                   className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  PREVIOUS
+                  PREV
                 </button>
+                
+                {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = idx + 1;
+                  } else if (page <= 3) {
+                    pageNum = idx + 1;
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + idx;
+                  } else {
+                    pageNum = page - 2 + idx;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer",
+                        page === pageNum 
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" 
+                          : "bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
                 <button
                   disabled={page === totalPages}
                   onClick={() => setPage(p => p + 1)}
