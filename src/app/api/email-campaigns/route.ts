@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
     const clientId = searchParams.get('client_id');
     const search = searchParams.get('search');
     const dateRange = searchParams.get('range');
+    const programId = searchParams.get('program_id');
+    const databaseType = searchParams.get('database_type');
+    const audienceCategory = searchParams.get('audience_category');
 
     // Calculate pagination range
     const from = (page - 1) * limit;
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('email_blast_reports')
-      .select('*, projects!inner(id, name, client_id, clients!inner(name))', { count: 'exact' })
+      .select('*, projects!inner(id, name, client_id, clients!inner(name)), email_programs(id, name)', { count: 'exact' })
       .order('sent_at', { ascending: false });
 
     // Apply filters
@@ -42,6 +45,15 @@ export async function GET(request: NextRequest) {
     }
     if (search) {
       query = query.ilike('campaign_name', `%${search}%`);
+    }
+    if (programId) {
+      query = query.eq('program_id', programId);
+    }
+    if (databaseType) {
+      query = query.eq('database_type', databaseType);
+    }
+    if (audienceCategory) {
+      query = query.eq('audience_category', audienceCategory);
     }
     
     let targetDateStr = '';
@@ -66,12 +78,21 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // Fetch global aggregates for the filtered client scope
+    // Fetch global aggregates for the filtered scope
     let aggQuery = supabase
       .from('email_blast_reports')
       .select('recipients, opens, clicks, bounces, projects!inner(client_id)');
     if (clientId) {
       aggQuery = aggQuery.eq('projects.client_id', clientId);
+    }
+    if (programId) {
+      aggQuery = aggQuery.eq('program_id', programId);
+    }
+    if (databaseType) {
+      aggQuery = aggQuery.eq('database_type', databaseType);
+    }
+    if (audienceCategory) {
+      aggQuery = aggQuery.eq('audience_category', audienceCategory);
     }
     if (targetDateStr) {
       aggQuery = aggQuery.gte('sent_at', targetDateStr);
@@ -95,7 +116,7 @@ export async function GET(request: NextRequest) {
     const totalCount = count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
-    // Format data to match previous structure
+    // Format data to match previous structure + include new fields
     const formattedCampaigns = (data || []).map((camp: any) => ({
       ...camp,
       name: camp.campaign_name,
@@ -106,7 +127,11 @@ export async function GET(request: NextRequest) {
       projects: {
         id: camp.projects?.id,
         name: camp.projects?.name
-      }
+      },
+      program: camp.email_programs ? {
+        id: camp.email_programs.id,
+        name: camp.email_programs.name
+      } : null
     }));
 
     return NextResponse.json(

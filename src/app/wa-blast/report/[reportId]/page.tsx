@@ -15,7 +15,10 @@ import {
   Edit2,
   Save,
   Plus,
-  Trash2
+  Trash2,
+  CheckSquare,
+  Square,
+  Zap
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -70,6 +73,15 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
   const [editCampaignName, setEditCampaignName] = useState('');
   const [editTemplateName, setEditTemplateName] = useState('');
   const [savingCampaign, setSavingCampaign] = useState(false);
+
+  // Single Recipient Edit State
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+
+  // Bulk Edit Recipient State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
 
 
 
@@ -217,8 +229,6 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
     window.print();
   };
 
-  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
-
   const handleUpdateStatus = async (recipientId: string, newStatus: string) => {
     try {
       const newSentAt = new Date().toISOString();
@@ -296,6 +306,84 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
     } catch (err: unknown) {
       console.error(err);
       alert('Gagal menghapus kontak: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  // --- Bulk Edit Recipient Handlers ---
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (recipients.every(r => selectedIds.has(r.id))) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        recipients.forEach(r => next.delete(r.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        recipients.forEach(r => next.add(r.id));
+        return next;
+      });
+    }
+  };
+
+  const handleBulkUpdateStatus = async () => {
+    if (selectedIds.size === 0 || !bulkStatus) {
+      alert('Pilih status terlebih dahulu.');
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const idsArray = Array.from(selectedIds);
+      const nowIso = new Date().toISOString();
+
+      // 1. Bulk update recipients in Supabase
+      const { error } = await supabase
+        .from('wa_blast_recipients')
+        .update({ 
+          status: bulkStatus,
+          sent_at: bulkStatus !== 'pending' ? nowIso : null
+        })
+        .in('id', idsArray);
+
+      if (error) throw error;
+
+      // 2. Recalculate stats for entire report
+      const { data: allRecs } = await supabase
+        .from('wa_blast_recipients')
+        .select('status')
+        .eq('report_id', rId);
+
+      if (allRecs) {
+        const total_sent = allRecs.length;
+        const delivered = allRecs.filter(r => r.status === 'delivered').length;
+        const read = allRecs.filter(r => r.status === 'read').length;
+        const failed = allRecs.filter(r => r.status === 'failed').length;
+
+        await supabase
+          .from('wa_blast_reports')
+          .update({ total_sent, delivered, read, failed })
+          .eq('id', rId);
+      }
+
+      setIsBulkEditOpen(false);
+      setSelectedIds(new Set());
+      setBulkStatus('');
+      fetchReportInfo();
+      fetchRecipients();
+    } catch (err: unknown) {
+      console.error(err);
+      alert('Bulk update gagal: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -489,8 +577,19 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
               <table className="w-full text-left min-w-200">
                 <thead>
                   <tr className="bg-white/5 border-b border-white/10">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Recipient</th>
+                    <th className="px-4 py-4 w-10">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer"
+                        title="Pilih semua di halaman ini"
+                      >
+                        {recipients.length > 0 && recipients.every(r => selectedIds.has(r.id))
+                          ? <CheckSquare className="w-4 h-4 text-emerald-400" />
+                          : <Square className="w-4 h-4" />}
+                      </button>
+                    </th>
+                    <th className="px-3 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-10">No.</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Recipient (No. WA)</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Dynamic Data</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                     <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Last Update</th>
@@ -499,7 +598,7 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
                 <tbody className="divide-y divide-white/5">
                   {recipients.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-sm">
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500 text-sm">
                         No recipient data found.
                       </td>
                     </tr>
@@ -507,8 +606,25 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
                     recipients.map((rec, index) => {
                       const rowNumber = (page - 1) * limit + index + 1;
                       return (
-                        <tr key={rec.id} className="hover:bg-white/2 transition-colors">
-                          <td className="px-6 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
+                        <tr
+                          key={rec.id}
+                          className={`transition-colors ${
+                            selectedIds.has(rec.id)
+                              ? 'bg-emerald-500/5 border-l-2 border-l-emerald-500/40'
+                              : 'hover:bg-white/2'
+                          }`}
+                        >
+                          <td className="px-4 py-4">
+                            <button
+                              onClick={() => toggleSelect(rec.id)}
+                              className="text-slate-500 hover:text-emerald-400 transition-colors cursor-pointer"
+                            >
+                              {selectedIds.has(rec.id)
+                                ? <CheckSquare className="w-4 h-4 text-emerald-400" />
+                                : <Square className="w-4 h-4" />}
+                            </button>
+                          </td>
+                          <td className="px-3 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
                           <td className="px-6 py-4">
                             <h4 className="text-sm font-bold text-white">{rec.name || '-'}</h4>
                             <p className="text-xs text-slate-400 mt-1 font-mono">{rec.phone_number}</p>
@@ -643,6 +759,112 @@ export default function WABlastReportDetail({ params }: { params: Promise<{ repo
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-3 bg-slate-900 border border-emerald-500/30 rounded-2xl shadow-2xl shadow-black/50 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm font-bold text-white">{selectedIds.size} penerima terpilih</span>
+            </div>
+            <div className="w-px h-5 bg-white/10" />
+            <button
+              onClick={() => { setBulkStatus(''); setIsBulkEditOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold rounded-xl transition-all cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Bulk Update Status
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="p-1.5 text-slate-500 hover:text-white transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+              title="Clear selection"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Recipient Status Modal */}
+      {isBulkEditOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl">
+            {/* Header */}
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-emerald-400" />
+                  Bulk Update Status Penerima
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Akan diapply ke <span className="text-emerald-400 font-bold">{selectedIds.size} nomor WA</span>
+                </p>
+              </div>
+              <button onClick={() => setIsBulkEditOpen(false)} className="text-slate-400 hover:text-white transition-colors cursor-pointer">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <label className="text-xs font-bold text-emerald-400 uppercase tracking-widest block">Pilih Status Penerima Baru</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'pending', label: '⏳ Pending', color: 'slate' },
+                  { value: 'sent', label: '📤 Sent', color: 'indigo' },
+                  { value: 'delivered', label: '✅ Delivered', color: 'emerald' },
+                  { value: 'read', label: '👀 Read', color: 'cyan' },
+                  { value: 'failed', label: '❌ Failed', color: 'red' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setBulkStatus(opt.value)}
+                    className={`py-3 px-4 rounded-xl text-sm font-bold transition-all cursor-pointer border ${
+                      bulkStatus === opt.value
+                        ? opt.color === 'emerald' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                          : opt.color === 'cyan' ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
+                          : opt.color === 'indigo' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40'
+                          : opt.color === 'red' ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                          : 'bg-slate-500/20 text-slate-300 border-slate-500/40'
+                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 mt-2">
+                <p className="text-[10px] text-amber-300/70 leading-relaxed">
+                  ⚠️ Status akan langsung diubah untuk <strong>{selectedIds.size} kontak penerima</strong> dan angka statistik kampanye akan otomatis dihitung ulang.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-white/2">
+              <button
+                type="button"
+                onClick={() => setIsBulkEditOpen(false)}
+                className="px-5 py-2.5 border border-white/10 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 text-sm font-bold cursor-pointer transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkUpdateStatus}
+                disabled={bulkLoading || !bulkStatus}
+                className="px-6 py-2.5 bg-linear-to-r from-emerald-500 to-teal-500 text-black rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Apply ke {selectedIds.size} Nomor
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
