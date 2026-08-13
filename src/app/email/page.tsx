@@ -20,7 +20,8 @@ import {
   Layers,
   CheckSquare,
   Square,
-  Zap
+  Zap,
+  FileSpreadsheet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -598,6 +599,73 @@ export default function EmailPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (campaigns.length === 0) {
+      alert('Tidak ada data untuk di-export.');
+      return;
+    }
+    const headers = [
+      "Client Name",
+      "Campaign Name",
+      "Program",
+      "Database Type",
+      "Audience Category",
+      "Sender",
+      "UTCID",
+      "Sent Date",
+      "Status",
+      "Recipients",
+      "Opens",
+      "Open Rate (%)",
+      "Clicks",
+      "Click Rate (%)",
+      "Replies",
+      "Unsubscribes",
+      "Bounces",
+      "Blocks",
+      "Opens Excl Apple"
+    ];
+
+    const rows = campaigns.map(c => {
+      const openRate = c.recipients > 0 ? ((c.opens / c.recipients) * 100).toFixed(1) : '0';
+      const clickRate = c.recipients > 0 ? ((c.clicks / c.recipients) * 100).toFixed(1) : '0';
+      const dbTypeLabel = c.database_type === 'internal' ? 'Internal' : c.database_type === 'external' ? 'Eksternal' : '-';
+      const audLabel = c.audience_category === 'dorman' ? 'Dorman' : c.audience_category === 'non_dorman' ? 'Non-Dorman' : '-';
+
+      return [
+        `"${(c.clients?.name || 'Unknown').replace(/"/g, '""')}"`,
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${(c.program?.name || '-').replace(/"/g, '""')}"`,
+        `"${dbTypeLabel}"`,
+        `"${audLabel}"`,
+        `"${c.sender}"`,
+        `"${c.utcid || ''}"`,
+        `"${new Date(c.sent_at).toLocaleString()}"`,
+        `"${c.status}"`,
+        c.recipients,
+        c.opens,
+        `"${openRate}%"`,
+        c.clicks,
+        `"${clickRate}%"`,
+        c.replies,
+        c.unsubscribes,
+        c.bounces,
+        c.blocks,
+        c.opens_excl_apple
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Email_Blast_Reports_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Aggregated Stats (Global totals across all campaigns retrieved from API)
   const totalSent = globalStats.totalSent;
   const avgOpenRate = totalSent > 0 ? ((globalStats.totalOpens / totalSent) * 100).toFixed(1) : '0.0';
@@ -839,6 +907,15 @@ export default function EmailPage() {
                     placeholder="All Clients"
                     className="w-full sm:w-48"
                   />
+                  {/* Export Excel Button */}
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={campaigns.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    EXPORT EXCEL
+                  </button>
                 </div>
               </div>
 
