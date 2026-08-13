@@ -21,7 +21,9 @@ import {
   MousePointerClick,
   MonitorOff,
   UserX,
-  FileX
+  FileX,
+  Tag,
+  Database
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -52,6 +54,10 @@ interface EmailCampaign {
   bounces: number;
   blocks: number;
   opens_excl_apple: number;
+  program_id?: string | null;
+  database_type?: string | null;
+  audience_category?: string | null;
+  email_programs?: { id: string; name: string } | null;
   projects?: {
     name: string;
     client_id: string;
@@ -96,7 +102,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
         const { data, error: fetchError } = await supabase
           .from('email_blast_reports')
-          .select('*, projects!inner(name, client_id, clients!inner(name))')
+          .select('*, projects!inner(name, client_id, clients!inner(name)), email_programs(id, name)')
           .eq('id', id)
           .single();
 
@@ -130,6 +136,9 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     const csvContent = [
       ["Metric", "Value", "Percentage"],
       ["Campaign Name", campaign.campaign_name, ""],
+      ["Program", campaign.email_programs?.name || "N/A", ""],
+      ["Database Source", campaign.database_type === 'internal' ? 'Internal' : campaign.database_type === 'external' ? 'Eksternal' : "N/A", ""],
+      ["Audience Category", campaign.audience_category === 'dorman' ? 'Dorman' : campaign.audience_category === 'non_dorman' ? 'Non-Dorman' : "N/A", ""],
       ["Sender Email", campaign.sender, ""],
       ["Sent Date", new Date(campaign.sent_at).toLocaleString(), ""],
       ["UTCID", campaign.utcid || "N/A", ""],
@@ -208,6 +217,33 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight leading-tight">
             Campaign Report: <span className="text-indigo-400">{campaign.projects?.clients?.name}</span>, {campaign.campaign_name}
           </h1>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            {campaign.email_programs && (
+              <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                <Tag className="w-3 h-3" />
+                {campaign.email_programs.name}
+              </span>
+            )}
+            {campaign.database_type && (
+              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${
+                campaign.database_type === 'internal' 
+                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+              }`}>
+                <Database className="w-3 h-3" />
+                {campaign.database_type === 'internal' ? 'Internal' : 'Eksternal'}
+              </span>
+            )}
+            {campaign.database_type === 'internal' && campaign.audience_category && (
+              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
+                campaign.audience_category === 'dorman'
+                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                  : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+              }`}>
+                {campaign.audience_category === 'dorman' ? '💤 Dorman' : '✅ Non-Dorman'}
+              </span>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500 font-medium">
             <span>Sent {new Date(campaign.sent_at).toLocaleString()}</span>
             <span className="text-slate-700">•</span>

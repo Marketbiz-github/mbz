@@ -10,7 +10,10 @@ import {
   Loader2,
   AlertTriangle,
   HelpCircle,
-  X
+  X,
+  Tag,
+  Database,
+  FileSpreadsheet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/AuthProvider';
@@ -31,6 +34,10 @@ interface EmailCampaign {
   bounces: number;
   blocks: number;
   opens_excl_apple: number;
+  program_id?: string | null;
+  database_type?: string | null;
+  audience_category?: string | null;
+  program?: { id: string; name: string } | null;
 }
 
 export default function ClientEmailPage() {
@@ -55,6 +62,41 @@ export default function ClientEmailPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState('30daysAgo');
+
+  // Classification Filter States
+  const [filterDbType, setFilterDbType] = useState('');
+  const [filterAudience, setFilterAudience] = useState('');
+  const [filterProgramId, setFilterProgramId] = useState('');
+  const [programs, setPrograms] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch client programs for filtering
+  useEffect(() => {
+    const fetchClientPrograms = async () => {
+      if (!user) return;
+      const { data: clientInfo } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single();
+      if (!clientInfo) return;
+
+      const { data: projData } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('client_id', clientInfo.id);
+      
+      if (projData && projData.length > 0) {
+        const pIds = projData.map(p => p.id);
+        const { data: progData } = await supabase
+          .from('email_programs')
+          .select('id, name')
+          .in('project_id', pIds)
+          .order('name');
+        setPrograms(progData || []);
+      }
+    };
+    fetchClientPrograms();
+  }, [user, supabase]);
 
   useEffect(() => {
     document.title = "Email Blast Reports | Client Portal";
@@ -84,6 +126,9 @@ export default function ClientEmailPage() {
           limit: limit.toString(),
           range: dateRange,
           ...(search ? { search } : {}),
+          ...(filterDbType ? { database_type: filterDbType } : {}),
+          ...(filterAudience ? { audience_category: filterAudience } : {}),
+          ...(filterProgramId ? { program_id: filterProgramId } : {}),
           client_id: clientInfo.id
         });
         const response = await fetch(`/api/email-campaigns?${queryParams.toString()}`);
@@ -110,12 +155,77 @@ export default function ClientEmailPage() {
     };
     load();
     return () => { cancelled = true; };
-  }, [user, page, limit, search, dateRange, supabase]);
+  }, [user, page, limit, search, dateRange, filterDbType, filterAudience, filterProgramId, supabase]);
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setPage(1);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (campaigns.length === 0) {
+      alert('Tidak ada data untuk di-export.');
+      return;
+    }
+    const headers = [
+      "Campaign Name",
+      "Program",
+      "Database Type",
+      "Audience Category",
+      "Sender",
+      "UTCID",
+      "Sent Date",
+      "Status",
+      "Recipients",
+      "Opens",
+      "Open Rate (%)",
+      "Clicks",
+      "Click Rate (%)",
+      "Replies",
+      "Unsubscribes",
+      "Bounces",
+      "Blocks",
+      "Opens Excl Apple"
+    ];
+
+    const rows = campaigns.map(c => {
+      const openRate = c.recipients > 0 ? ((c.opens / c.recipients) * 100).toFixed(1) : '0';
+      const clickRate = c.recipients > 0 ? ((c.clicks / c.recipients) * 100).toFixed(1) : '0';
+      const dbTypeLabel = c.database_type === 'internal' ? 'Internal' : c.database_type === 'external' ? 'Eksternal' : '-';
+      const audLabel = c.audience_category === 'dorman' ? 'Dorman' : c.audience_category === 'non_dorman' ? 'Non-Dorman' : '-';
+
+      return [
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${(c.program?.name || '-').replace(/"/g, '""')}"`,
+        `"${dbTypeLabel}"`,
+        `"${audLabel}"`,
+        `"${c.sender}"`,
+        `"${c.utcid || ''}"`,
+        `"${new Date(c.sent_at).toLocaleString()}"`,
+        `"${c.status}"`,
+        c.recipients,
+        c.opens,
+        `"${openRate}%"`,
+        c.clicks,
+        `"${clickRate}%"`,
+        c.replies,
+        c.unsubscribes,
+        c.bounces,
+        c.blocks,
+        c.opens_excl_apple
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Email_Blast_Reports_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const totalSent = globalStats.totalSent;
@@ -221,21 +331,82 @@ export default function ClientEmailPage() {
         </div>
       </div>
 
-      <div className="high-tech-card p-4 flex items-center gap-4 bg-slate-900/40">
-        <div className="relative flex-1 max-w-md">
-          <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-          <input 
-            type="text"
-            placeholder="Search campaigns..."
-            value={search}
+      {/* Filter and search controls */}
+      <div className="high-tech-card p-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-900/40">
+        <div className="flex flex-wrap items-center gap-3 flex-1 w-full">
+          <div className="relative flex-1 min-w-[200px]">
+            <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <input 
+              type="text"
+              placeholder="Search campaigns..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              onKeyDown={handleSearchKeyPress}
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-colors"
+            />
+          </div>
+
+          {/* Database Type Filter */}
+          <select
+            value={filterDbType}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setFilterDbType(e.target.value);
+              setFilterAudience('');
               setPage(1);
             }}
-            onKeyDown={handleSearchKeyPress}
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-cyan-500/50 transition-colors"
-          />
+            className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-cyan-500/50 cursor-pointer"
+          >
+            <option value="">Semua Database</option>
+            <option value="internal">🏢 Internal</option>
+            <option value="external">🌐 Eksternal</option>
+          </select>
+
+          {/* Audience Filter (if internal) */}
+          {filterDbType === 'internal' && (
+            <select
+              value={filterAudience}
+              onChange={(e) => {
+                setFilterAudience(e.target.value);
+                setPage(1);
+              }}
+              className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-cyan-500/50 cursor-pointer animate-in fade-in duration-150"
+            >
+              <option value="">Semua Audiens</option>
+              <option value="dorman">💤 Dorman</option>
+              <option value="non_dorman">✅ Non-Dorman</option>
+            </select>
+          )}
+
+          {/* Program Filter */}
+          {programs.length > 0 && (
+            <select
+              value={filterProgramId}
+              onChange={(e) => {
+                setFilterProgramId(e.target.value);
+                setPage(1);
+              }}
+              className="bg-black/60 border border-white/10 text-white text-xs font-bold rounded-lg px-3 py-2 outline-none focus:border-cyan-500/50 cursor-pointer"
+            >
+              <option value="">Semua Program</option>
+              {programs.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
         </div>
+
+        {/* Export Excel Button */}
+        <button
+          onClick={handleExportCSV}
+          disabled={campaigns.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          EXPORT EXCEL
+        </button>
       </div>
 
       {loading ? (
@@ -281,6 +452,33 @@ export default function ClientEmailPage() {
                         <td className="px-6 py-4">
                           <p className="font-bold text-sm text-white mb-1">{camp.name}</p>
                           <p className="text-xs text-slate-500 font-mono">Sent: {new Date(camp.sent_at).toLocaleDateString()}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {camp.program && (
+                              <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                <Tag className="w-2.5 h-2.5" />
+                                {camp.program.name}
+                              </span>
+                            )}
+                            {camp.database_type && (
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                                camp.database_type === 'internal' 
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                  : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              }`}>
+                                <Database className="w-2.5 h-2.5" />
+                                {camp.database_type === 'internal' ? 'Internal' : 'Eksternal'}
+                              </span>
+                            )}
+                            {camp.database_type === 'internal' && camp.audience_category && (
+                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                camp.audience_category === 'dorman'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                  : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                              }`}>
+                                {camp.audience_category === 'dorman' ? '💤 Dorman' : '✅ Non-Dorman'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-xs text-slate-300">

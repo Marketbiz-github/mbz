@@ -14,13 +14,26 @@ import {
   X,
   Edit2,
   AlertTriangle,
-  HelpCircle
+  HelpCircle,
+  Database,
+  Tag,
+  Layers,
+  CheckSquare,
+  Square,
+  Zap,
+  FileSpreadsheet
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 interface Client {
   id: string;
   name: string;
+}
+
+interface EmailProgram {
+  id: string;
+  name: string;
+  project_id?: string;
 }
 
 interface EmailCampaign {
@@ -39,6 +52,10 @@ interface EmailCampaign {
   bounces: number;
   blocks: number;
   opens_excl_apple: number;
+  program_id: string | null;
+  database_type: string | null;
+  audience_category: string | null;
+  program?: { id: string; name: string } | null;
   clients?: {
     name: string;
   };
@@ -149,10 +166,23 @@ export default function EmailPage() {
   const [filterClientId, setFilterClientId] = useState('');
   const [dateRange, setDateRange] = useState('30daysAgo');
 
+  // Classification Filter States
+  const [filterDbType, setFilterDbType] = useState('');
+  const [filterAudience, setFilterAudience] = useState('');
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<EmailCampaign | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Bulk Edit State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [bulkDbType, setBulkDbType] = useState('');
+  const [bulkAudience, setBulkAudience] = useState('');
+  const [bulkProgramId, setBulkProgramId] = useState('');
+  const [bulkPrograms, setBulkPrograms] = useState<EmailProgram[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Form State
   const [clientId, setClientId] = useState('');
@@ -171,6 +201,14 @@ export default function EmailPage() {
   const [unsubscribes, setUnsubscribes] = useState(0);
   const [opensExclApple, setOpensExclApple] = useState(0);
 
+  // Classification Form State
+  const [programId, setProgramId] = useState('');
+  const [programs, setPrograms] = useState<EmailProgram[]>([]);
+  const [newProgramName, setNewProgramName] = useState('');
+  const [isCreatingProgram, setIsCreatingProgram] = useState(false);
+  const [databaseType, setDatabaseType] = useState('');
+  const [audienceCategory, setAudienceCategory] = useState('');
+
   const supabase = createClient();
 
   // Stable manual refetch (used after create/update/delete)
@@ -178,13 +216,23 @@ export default function EmailPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: clientData, error: clientError } = await supabase
+      // Load clients yang punya service Email Blast, fallback ke semua client jika kosong
+      const { data: clientDataFiltered } = await supabase
         .from('clients')
         .select('id, name, client_services!inner(service_id, services!inner(name))')
         .eq('client_services.services.name', 'Email Blast')
         .order('name');
-      if (clientError) throw clientError;
-      setClients(clientData || []);
+      if (clientDataFiltered && clientDataFiltered.length > 0) {
+        setClients(clientDataFiltered);
+      } else {
+        // Fallback: load semua client
+        const { data: allClientData, error: clientError } = await supabase
+          .from('clients')
+          .select('id, name')
+          .order('name');
+        if (clientError) throw clientError;
+        setClients(allClientData || []);
+      }
 
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
@@ -198,7 +246,9 @@ export default function EmailPage() {
         limit: limit.toString(),
         ...(search ? { search } : {}),
         ...(filterClientId ? { client_id: filterClientId } : {}),
-        ...(dateRange ? { range: dateRange } : {})
+        ...(dateRange ? { range: dateRange } : {}),
+        ...(filterDbType ? { database_type: filterDbType } : {}),
+        ...(filterAudience ? { audience_category: filterAudience } : {})
       });
       const response = await fetch(`/api/email-campaigns?${queryParams.toString()}`);
       const result = await response.json();
@@ -218,7 +268,7 @@ export default function EmailPage() {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, filterClientId, dateRange]);
+  }, [page, limit, search, filterClientId, dateRange, filterDbType, filterAudience]);
 
   // Auto-fetch when filters/page change — fetch logic is inlined to avoid
   // the "setState in effect via callback" lint rule.
@@ -229,13 +279,23 @@ export default function EmailPage() {
       setLoading(true);
       setError(null);
       try {
-        const { data: clientData, error: clientError } = await supabase
+        // Load clients yang punya service Email Blast, fallback ke semua client jika kosong
+        const { data: clientDataFiltered } = await supabase
           .from('clients')
           .select('id, name, client_services!inner(service_id, services!inner(name))')
           .eq('client_services.services.name', 'Email Blast')
           .order('name');
-        if (clientError) throw clientError;
-        if (!cancelled) setClients(clientData || []);
+        if (!cancelled) {
+          if (clientDataFiltered && clientDataFiltered.length > 0) {
+            setClients(clientDataFiltered);
+          } else {
+            const { data: allClientData } = await supabase
+              .from('clients')
+              .select('id, name')
+              .order('name');
+            if (!cancelled) setClients(allClientData || []);
+          }
+        }
 
         const { data: projectData, error: projectError } = await supabase
           .from('projects')
@@ -249,7 +309,9 @@ export default function EmailPage() {
           limit: limit.toString(),
           ...(search ? { search } : {}),
           ...(filterClientId ? { client_id: filterClientId } : {}),
-          ...(dateRange ? { range: dateRange } : {})
+          ...(dateRange ? { range: dateRange } : {}),
+          ...(filterDbType ? { database_type: filterDbType } : {}),
+          ...(filterAudience ? { audience_category: filterAudience } : {})
         });
         const response = await fetch(`/api/email-campaigns?${queryParams.toString()}`);
         const result = await response.json();
@@ -278,7 +340,7 @@ export default function EmailPage() {
     return () => { cancelled = true; };
   // supabase client is stable; only re-run when these values change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search, filterClientId, dateRange]);
+  }, [page, limit, search, filterClientId, dateRange, filterDbType, filterAudience]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -293,7 +355,47 @@ export default function EmailPage() {
   const handleFormClientChange = (val: string) => {
     setClientId(val);
     const clientProjects = allProjects.filter(p => p.client_id === val);
-    setProjectId(clientProjects[0]?.id || '');
+    const firstProject = clientProjects[0]?.id || '';
+    setProjectId(firstProject);
+    setProgramId('');
+    setPrograms([]);
+    if (firstProject) fetchPrograms(firstProject);
+  };
+
+  const fetchPrograms = async (projId: string) => {
+    const { data } = await supabase
+      .from('email_programs')
+      .select('id, name, project_id')
+      .eq('project_id', projId)
+      .order('name');
+    setPrograms(data || []);
+  };
+
+  const handleFormProjectChange = (val: string) => {
+    setProjectId(val);
+    setProgramId('');
+    if (val) fetchPrograms(val);
+    else setPrograms([]);
+  };
+
+  const handleCreateProgram = async () => {
+    if (!newProgramName.trim() || !projectId) return;
+    setIsCreatingProgram(true);
+    try {
+      const { data, error } = await supabase
+        .from('email_programs')
+        .insert([{ project_id: projectId, name: newProgramName.trim() }])
+        .select()
+        .single();
+      if (error) throw error;
+      setPrograms(prev => [...prev, data]);
+      setProgramId(data.id);
+      setNewProgramName('');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Gagal membuat program');
+    } finally {
+      setIsCreatingProgram(false);
+    }
   };
 
   const openCreateModal = () => {
@@ -318,6 +420,12 @@ export default function EmailPage() {
     setReplies(0);
     setUnsubscribes(0);
     setOpensExclApple(0);
+    setProgramId('');
+    setDatabaseType('');
+    setAudienceCategory('');
+    setNewProgramName('');
+    setPrograms([]);
+    if (clientProjects[0]?.id) fetchPrograms(clientProjects[0].id);
     setIsModalOpen(true);
   };
 
@@ -341,6 +449,11 @@ export default function EmailPage() {
     setReplies(campaign.replies);
     setUnsubscribes(campaign.unsubscribes);
     setOpensExclApple(campaign.opens_excl_apple);
+    setProgramId(campaign.program_id || '');
+    setDatabaseType(campaign.database_type || '');
+    setAudienceCategory(campaign.audience_category || '');
+    setNewProgramName('');
+    if (campaign.project_id) fetchPrograms(campaign.project_id);
     setIsModalOpen(true);
   };
 
@@ -352,7 +465,7 @@ export default function EmailPage() {
     }
     setModalLoading(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         project_id: projectId,
         campaign_name: name,
         sender,
@@ -366,7 +479,10 @@ export default function EmailPage() {
         blocks: Number(blocks),
         replies: Number(replies),
         unsubscribes: Number(unsubscribes),
-        opens_excl_apple: Number(opensExclApple)
+        opens_excl_apple: Number(opensExclApple),
+        program_id: programId || null,
+        database_type: databaseType || null,
+        audience_category: databaseType === 'internal' ? (audienceCategory || null) : null
       };
 
       if (editingCampaign) {
@@ -410,6 +526,144 @@ export default function EmailPage() {
       const message = err instanceof Error ? err.message : 'Failed to delete campaign.';
       alert(message);
     }
+  };
+
+  // --- Bulk Edit ---
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (campaigns.every(c => selectedIds.has(c.id))) {
+      // deselect semua di halaman ini
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        campaigns.forEach(c => next.delete(c.id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        campaigns.forEach(c => next.add(c.id));
+        return next;
+      });
+    }
+  };
+
+  const openBulkEdit = async () => {
+    setBulkDbType('');
+    setBulkAudience('');
+    setBulkProgramId('');
+    // Load semua program untuk pilihan
+    const { data } = await supabase
+      .from('email_programs')
+      .select('id, name, project_id')
+      .order('name');
+    setBulkPrograms(data || []);
+    setIsBulkEditOpen(true);
+  };
+
+  const handleBulkUpdate = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (bulkDbType !== '__skip__') {
+        payload.database_type = bulkDbType || null;
+        payload.audience_category = bulkDbType === 'internal' ? (bulkAudience || null) : null;
+      }
+      if (bulkProgramId !== '__skip__') {
+        payload.program_id = bulkProgramId || null;
+      }
+      if (Object.keys(payload).length === 0) {
+        alert('Pilih minimal satu field yang ingin diubah.');
+        return;
+      }
+      const { error } = await supabase
+        .from('email_blast_reports')
+        .update(payload)
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      setIsBulkEditOpen(false);
+      setSelectedIds(new Set());
+      fetchData();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Bulk update gagal.');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (campaigns.length === 0) {
+      alert('Tidak ada data untuk di-export.');
+      return;
+    }
+    const headers = [
+      "Client Name",
+      "Campaign Name",
+      "Program",
+      "Database Type",
+      "Audience Category",
+      "Sender",
+      "UTCID",
+      "Sent Date",
+      "Status",
+      "Recipients",
+      "Opens",
+      "Open Rate (%)",
+      "Clicks",
+      "Click Rate (%)",
+      "Replies",
+      "Unsubscribes",
+      "Bounces",
+      "Blocks",
+      "Opens Excl Apple"
+    ];
+
+    const rows = campaigns.map(c => {
+      const openRate = c.recipients > 0 ? ((c.opens / c.recipients) * 100).toFixed(1) : '0';
+      const clickRate = c.recipients > 0 ? ((c.clicks / c.recipients) * 100).toFixed(1) : '0';
+      const dbTypeLabel = c.database_type === 'internal' ? 'Internal' : c.database_type === 'external' ? 'Eksternal' : '-';
+      const audLabel = c.audience_category === 'dorman' ? 'Dorman' : c.audience_category === 'non_dorman' ? 'Non-Dorman' : '-';
+
+      return [
+        `"${(c.clients?.name || 'Unknown').replace(/"/g, '""')}"`,
+        `"${c.name.replace(/"/g, '""')}"`,
+        `"${(c.program?.name || '-').replace(/"/g, '""')}"`,
+        `"${dbTypeLabel}"`,
+        `"${audLabel}"`,
+        `"${c.sender}"`,
+        `"${c.utcid || ''}"`,
+        `"${new Date(c.sent_at).toLocaleString()}"`,
+        `"${c.status}"`,
+        c.recipients,
+        c.opens,
+        `"${openRate}%"`,
+        c.clicks,
+        `"${clickRate}%"`,
+        c.replies,
+        c.unsubscribes,
+        c.bounces,
+        c.blocks,
+        c.opens_excl_apple
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Email_Blast_Reports_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Aggregated Stats (Global totals across all campaigns retrieved from API)
@@ -551,6 +805,81 @@ export default function EmailPage() {
             </div>
           </div>
 
+          {/* Classification Tab Filter */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-1 bg-slate-900/60 border border-white/10 rounded-xl p-1">
+              <button
+                onClick={() => { setFilterDbType(''); setFilterAudience(''); setPage(1); }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  filterDbType === '' 
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-lg' 
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                onClick={() => { setFilterDbType('internal'); setFilterAudience(''); setPage(1); }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterDbType === 'internal' 
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-lg' 
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                Internal
+              </button>
+              <button
+                onClick={() => { setFilterDbType('external'); setFilterAudience(''); setPage(1); }}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  filterDbType === 'external' 
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 shadow-lg' 
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Eksternal
+              </button>
+            </div>
+
+            {/* Sub-filter: Dorman / Non-Dorman (only when Internal is active) */}
+            {filterDbType === 'internal' && (
+              <div className="flex items-center gap-1.5 animate-in slide-in-from-left-2 duration-200">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mr-1">Audiens:</span>
+                <button
+                  onClick={() => { setFilterAudience(''); setPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    filterAudience === '' 
+                      ? 'bg-white/10 text-white border border-white/20' 
+                      : 'text-slate-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => { setFilterAudience('dorman'); setPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    filterAudience === 'dorman' 
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' 
+                      : 'text-slate-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  💤 Dorman
+                </button>
+                <button
+                  onClick={() => { setFilterAudience('non_dorman'); setPage(1); }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    filterAudience === 'non_dorman' 
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                      : 'text-slate-500 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  ✅ Non-Dorman
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Table Area */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             <div className="xl:col-span-3 space-y-6">
@@ -578,6 +907,15 @@ export default function EmailPage() {
                     placeholder="All Clients"
                     className="w-full sm:w-48"
                   />
+                  {/* Export Excel Button */}
+                  <button
+                    onClick={handleExportCSV}
+                    disabled={campaigns.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-lg font-bold text-xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    EXPORT EXCEL
+                  </button>
                 </div>
               </div>
 
@@ -586,7 +924,18 @@ export default function EmailPage() {
                   <table className="w-full text-left min-w-[800px]">
                     <thead>
                       <tr className="bg-white/5 border-b border-white/10">
-                        <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-12">No.</th>
+                        <th className="px-4 py-4 w-10">
+                          <button
+                            onClick={toggleSelectAll}
+                            className="text-slate-500 hover:text-cyan-400 transition-colors cursor-pointer"
+                            title="Pilih semua di halaman ini"
+                          >
+                            {campaigns.length > 0 && campaigns.every(c => selectedIds.has(c.id))
+                              ? <CheckSquare className="w-4 h-4 text-cyan-400" />
+                              : <Square className="w-4 h-4" />}
+                          </button>
+                        </th>
+                        <th className="px-3 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest w-10">No.</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Client & Campaign</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Sender Info</th>
                         <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Recipients</th>
@@ -614,14 +963,58 @@ export default function EmailPage() {
                           });
 
                           return (
-                            <tr key={camp.id} className="hover:bg-white/2 transition-colors">
-                              <td className="px-6 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
+                            <tr
+                              key={camp.id}
+                              className={`transition-colors ${
+                                selectedIds.has(camp.id)
+                                  ? 'bg-indigo-500/5 border-l-2 border-l-indigo-500/50'
+                                  : 'hover:bg-white/2'
+                              }`}
+                            >
+                              <td className="px-4 py-4">
+                                <button
+                                  onClick={() => toggleSelect(camp.id)}
+                                  className="text-slate-500 hover:text-cyan-400 transition-colors cursor-pointer"
+                                >
+                                  {selectedIds.has(camp.id)
+                                    ? <CheckSquare className="w-4 h-4 text-cyan-400" />
+                                    : <Square className="w-4 h-4" />}
+                                </button>
+                              </td>
+                              <td className="px-3 py-4 text-xs font-bold text-slate-500">{rowNumber}</td>
                               <td className="px-6 py-4">
                                 <div>
                                   <h4 className="text-sm font-bold text-white">{camp.name}</h4>
                                   <p className="text-xs text-slate-500 mt-0.5">
                                     Client: <span className="text-indigo-400 font-semibold">{camp.clients?.name || 'Unknown'}</span> • {dateString}
                                   </p>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                    {camp.program && (
+                                      <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                                        <Tag className="w-2.5 h-2.5" />
+                                        {camp.program.name}
+                                      </span>
+                                    )}
+                                    {camp.database_type && (
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                                        camp.database_type === 'internal' 
+                                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                          : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                      }`}>
+                                        <Database className="w-2.5 h-2.5" />
+                                        {camp.database_type === 'internal' ? 'Internal' : 'Eksternal'}
+                                      </span>
+                                    )}
+                                    {camp.database_type === 'internal' && camp.audience_category && (
+                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                        camp.audience_category === 'dorman'
+                                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                          : 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
+                                      }`}>
+                                        {camp.audience_category === 'dorman' ? '💤 Dorman' : '✅ Non-Dorman'}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
@@ -688,6 +1081,13 @@ export default function EmailPage() {
                     </tbody>
                   </table>
                 </div>
+                {/* Bulk hint info bar */}
+                {campaigns.length > 0 && selectedIds.size === 0 && (
+                  <div className="px-5 py-2.5 bg-white/2 border-t border-white/5 flex items-center gap-2">
+                    <CheckSquare className="w-3 h-3 text-slate-600" />
+                    <span className="text-[10px] text-slate-600">Centang baris untuk bulk edit klasifikasi sekaligus</span>
+                  </div>
+                )}
 
                 {/* Pagination Controls */}
                 {totalPages > 1 && (
@@ -739,7 +1139,9 @@ export default function EmailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Client selection */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Select Client</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Select Client <span className="text-red-400">*</span>
+                  </label>
                   <SearchableSelect
                     options={clients}
                     value={clientId}
@@ -750,47 +1152,173 @@ export default function EmailPage() {
 
                 {/* Project selection */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Select Project</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Select Project <span className="text-red-400">*</span>
+                  </label>
                   <SearchableSelect
                     options={allProjects.filter(p => p.client_id === clientId)}
                     value={projectId}
-                    onChange={(val) => setProjectId(val)}
+                    onChange={(val) => handleFormProjectChange(val)}
                     placeholder="-- Choose Project --"
                   />
                   {allProjects.filter(p => p.client_id === clientId).length === 0 && clientId && (
-                    <p className="text-xs text-amber-400 mt-1">This client has no active projects with the "Email Blast" service.</p>
+                    <p className="text-xs text-amber-400 mt-1">This client has no active projects with the &quot;Email Blast&quot; service.</p>
                   )}
                 </div>
 
+                {/* Program & Classification Section */}
+                {clientId && (
+                  <>
+                    {/* Program Selection */}
+                    <div className="md:col-span-2 bg-purple-500/5 border border-purple-500/10 rounded-xl p-4 space-y-3">
+                      <label className="block text-xs font-medium text-purple-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Tag className="w-3.5 h-3.5" />
+                        Program
+                      </label>
+                      {programs.length > 0 ? (
+                        <SearchableSelect
+                          options={[{ id: '', name: '-- Tanpa Program --' }, ...programs]}
+                          value={programId}
+                          onChange={(val) => setProgramId(val)}
+                          placeholder="-- Pilih Program --"
+                        />
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          {projectId ? 'Belum ada program. Buat program baru di bawah.' : 'Pilih Project dulu untuk melihat dan membuat program.'}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newProgramName}
+                          onChange={(e) => setNewProgramName(e.target.value)}
+                          placeholder={projectId ? "Nama program baru (cth: iPaymu.link)" : "Pilih project dulu..."}
+                          disabled={!projectId}
+                          className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCreateProgram}
+                          disabled={isCreatingProgram || !newProgramName.trim() || !projectId}
+                          className="px-3 py-2 bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-bold hover:bg-purple-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1"
+                        >
+                          {isCreatingProgram ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          Buat
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Database Type & Audience Classification */}
+                    <div className="md:col-span-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-4 space-y-3">
+                      <label className="block text-xs font-medium text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Database className="w-3.5 h-3.5" />
+                        Sumber Database
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setDatabaseType(''); setAudienceCategory(''); }}
+                          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            databaseType === '' 
+                              ? 'bg-white/10 text-white border border-white/20' 
+                              : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                          }`}
+                        >
+                          Belum Dipilih
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setDatabaseType('internal'); setAudienceCategory(''); }}
+                          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            databaseType === 'internal' 
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                          }`}
+                        >
+                          🏢 Internal
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setDatabaseType('external'); setAudienceCategory(''); }}
+                          className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            databaseType === 'external' 
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' 
+                              : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                          }`}
+                        >
+                          🌐 Eksternal
+                        </button>
+                      </div>
+
+                      {/* Audience Category (only for Internal) */}
+                      {databaseType === 'internal' && (
+                        <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kategori Audiens</label>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setAudienceCategory('dorman')}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                audienceCategory === 'dorman' 
+                                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' 
+                                  : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                              }`}
+                            >
+                              💤 Dorman
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAudienceCategory('non_dorman')}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                audienceCategory === 'non_dorman' 
+                                  ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' 
+                                  : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                              }`}
+                            >
+                              ✅ Non-Dorman (Aktif)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
                 {/* Campaign Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Campaign Name / Subject</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Campaign Name / Subject <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Pembeli Anda tinggal klik & bayar"
+                    placeholder="e.g. Pembeli Anda tinggal klik &amp; bayar"
                     className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                   />
                 </div>
-
+                
                 {/* Sender */}
                 <div>
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Sender Email</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Sender Email <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="email"
                     required
                     value={sender}
                     onChange={(e) => setSender(e.target.value)}
-                    placeholder="mira@ipaymu.com"
+                    placeholder="noreply@ipaymu.com"
                     className="block w-full px-3 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                   />
                 </div>
 
                 {/* UTCID */}
                 <div>
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">UTCID (External ID)</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    UTCID (External ID) <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="text"
                     required
@@ -803,7 +1331,9 @@ export default function EmailPage() {
 
                 {/* Sent At */}
                 <div>
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Sent Date & Time</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Sent Date & Time <span className="text-red-400">*</span>
+                  </label>
                   <input
                     type="datetime-local"
                     required
@@ -815,7 +1345,9 @@ export default function EmailPage() {
 
                 {/* Status */}
                 <div>
-                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">Status</label>
+                  <label className="block text-xs font-medium text-cyan-400 uppercase tracking-widest mb-2">
+                    Status <span className="text-red-400">*</span>
+                  </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
@@ -837,7 +1369,9 @@ export default function EmailPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {/* Recipients */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Total Recipients</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Total Recipients <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -850,7 +1384,9 @@ export default function EmailPage() {
 
                   {/* Opens */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Total Opens</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Total Opens <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -863,7 +1399,9 @@ export default function EmailPage() {
 
                   {/* Clicks */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Total Clicks</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Total Clicks <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -876,7 +1414,9 @@ export default function EmailPage() {
 
                   {/* Bounces */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Bounces</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Bounces <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -889,7 +1429,9 @@ export default function EmailPage() {
 
                   {/* Blocks */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Blocks</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Blocks <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -902,7 +1444,9 @@ export default function EmailPage() {
 
                   {/* Replies */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Replies</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Replies <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -915,7 +1459,9 @@ export default function EmailPage() {
 
                   {/* Unsubscribes */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Unsubscribes</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Unsubscribes <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -928,7 +1474,9 @@ export default function EmailPage() {
 
                   {/* Opens Excl Apple */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1">Opens (Excl. Apple)</label>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1">
+                      Opens (Excl. Apple) <span className="text-red-400">*</span>
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -1011,6 +1559,172 @@ export default function EmailPage() {
                 className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
               >
                 Pahami & Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-3 bg-slate-900 border border-indigo-500/30 rounded-2xl shadow-2xl shadow-black/50 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-indigo-400" />
+              <span className="text-sm font-bold text-white">{selectedIds.size} campaign terpilih</span>
+            </div>
+            <div className="w-px h-5 bg-white/10" />
+            <button
+              onClick={openBulkEdit}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.4)]"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Bulk Edit
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="p-1.5 text-slate-500 hover:text-white transition-colors cursor-pointer rounded-lg hover:bg-white/5"
+              title="Clear selection"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      {isBulkEditOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-2xl shadow-2xl">
+            {/* Header */}
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-indigo-400" />
+                  Bulk Edit Klasifikasi
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Akan diapply ke <span className="text-indigo-400 font-bold">{selectedIds.size} campaign</span>
+                </p>
+              </div>
+              <button onClick={() => setIsBulkEditOpen(false)} className="text-slate-400 hover:text-white transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Sumber Database */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5" />
+                    Sumber Database
+                  </label>
+                  <button
+                    onClick={() => setBulkDbType('__skip__')}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                      bulkDbType === '__skip__'
+                        ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                        : 'text-slate-600 hover:text-slate-400'
+                    }`}
+                  >
+                    Lewati field ini
+                  </button>
+                </div>
+                <div className={`flex items-center gap-2 transition-opacity ${bulkDbType === '__skip__' ? 'opacity-30 pointer-events-none' : ''}`}>
+                  <button type="button" onClick={() => { setBulkDbType(''); setBulkAudience(''); }}
+                    className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      bulkDbType === '' ? 'bg-white/10 text-white border border-white/20' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                    }`}>
+                    Belum Dipilih
+                  </button>
+                  <button type="button" onClick={() => { setBulkDbType('internal'); setBulkAudience(''); }}
+                    className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      bulkDbType === 'internal' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                    }`}>
+                    🏢 Internal
+                  </button>
+                  <button type="button" onClick={() => { setBulkDbType('external'); setBulkAudience(''); }}
+                    className={`px-4 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      bulkDbType === 'external' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                    }`}>
+                    🌐 Eksternal
+                  </button>
+                </div>
+                {bulkDbType === 'internal' && (
+                  <div className="animate-in slide-in-from-top-2 duration-200 space-y-2 pl-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kategori Audiens</label>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setBulkAudience('')}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          bulkAudience === '' ? 'bg-white/10 text-white border border-white/20' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                        }`}>Semua / Tidak Set</button>
+                      <button type="button" onClick={() => setBulkAudience('dorman')}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          bulkAudience === 'dorman' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                        }`}>💤 Dorman</button>
+                      <button type="button" onClick={() => setBulkAudience('non_dorman')}
+                        className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          bulkAudience === 'non_dorman' ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30' : 'bg-white/5 text-slate-500 border border-white/5 hover:text-white'
+                        }`}>✅ Non-Dorman</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Program */}
+              <div className="space-y-3 border-t border-white/5 pt-5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Program
+                  </label>
+                  <button
+                    onClick={() => setBulkProgramId('__skip__')}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                      bulkProgramId === '__skip__'
+                        ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
+                        : 'text-slate-600 hover:text-slate-400'
+                    }`}
+                  >
+                    Lewati field ini
+                  </button>
+                </div>
+                <div className={`transition-opacity ${bulkProgramId === '__skip__' ? 'opacity-30 pointer-events-none' : ''}`}>
+                  <SearchableSelect
+                    options={[{ id: '', name: '-- Hapus Program (set null) --' }, ...bulkPrograms]}
+                    value={bulkProgramId === '__skip__' ? '' : bulkProgramId}
+                    onChange={(val) => setBulkProgramId(val)}
+                    placeholder="-- Pilih Program --"
+                    emptyMessage="Belum ada program di sistem"
+                  />
+                </div>
+              </div>
+
+              {/* Info box */}
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3">
+                <p className="text-[10px] text-amber-300/70 leading-relaxed">
+                  ⚠️ Perubahan akan langsung disimpan ke database untuk semua <strong>{selectedIds.size} campaign</strong> yang dipilih. Gunakan &quot;Lewati field ini&quot; untuk field yang tidak ingin diubah.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-white/10 flex justify-end gap-3 bg-white/2">
+              <button
+                type="button"
+                onClick={() => setIsBulkEditOpen(false)}
+                className="px-5 py-2.5 border border-white/10 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 text-sm font-bold cursor-pointer transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkUpdate}
+                disabled={bulkLoading}
+                className="px-6 py-2.5 bg-linear-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Apply ke {selectedIds.size} Campaign
               </button>
             </div>
           </div>

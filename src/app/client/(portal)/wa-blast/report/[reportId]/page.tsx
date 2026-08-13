@@ -167,11 +167,11 @@ export default function ClientWABlastReportDetail({ params }: { params: Promise<
       const csvContent = [
         ["Name", "Phone Number", "Status", "Error Message", "Sent At"],
         ...data.map(rec => [
-          rec.name || "-",
-          rec.phone_number,
-          rec.status,
-          rec.error_message ? rec.error_message.replace(/,/g, '') : "",
-          rec.sent_at ? new Date(rec.sent_at).toLocaleString() : "-"
+          `"${(rec.name || "-").replace(/"/g, '""')}"`,
+          `"${rec.phone_number}"`,
+          `"${rec.status}"`,
+          `"${(rec.error_message || "").replace(/"/g, '""')}"`,
+          `"${rec.sent_at ? new Date(rec.sent_at).toLocaleString() : "-"}"`
         ])
       ].map(e => e.join(",")).join("\n");
 
