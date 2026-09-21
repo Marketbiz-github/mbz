@@ -29,9 +29,28 @@ export async function updateSession(request: NextRequest) {
 
   // This will refresh session if expired - required for Server Components
   // https://supabase.com/docs/guides/auth/server-side/nextjs
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  let role: string | undefined = undefined
+
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+    user = authUser
+
+    if (user) {
+      // Fetch role to handle proper redirection
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      role = profile?.role
+    }
+  } catch (err) {
+    console.error('[Middleware] Supabase connection error:', err)
+  }
 
   // PROTECTED ROUTES LOGIC
   const url = request.nextUrl.clone()
@@ -60,15 +79,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    // Fetch role to handle proper redirection
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const role = profile?.role
-
     if (isLoginPage) {
       url.pathname = role === 'admin' ? '/dashboard' : '/client/dashboard'
       return NextResponse.redirect(url)
